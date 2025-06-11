@@ -54,7 +54,9 @@ class DatabaseMigrator
         
         if ($handle = opendir($this->migrationsDir)) {
             while (false !== ($file = readdir($handle))) {
-                if ($file !== "." && $file !== ".." && pathinfo($file, PATHINFO_EXTENSION) === 'sql') {
+                if ($file !== "." && $file !== ".." && 
+                    (pathinfo($file, PATHINFO_EXTENSION) === 'sql' || 
+                     pathinfo($file, PATHINFO_EXTENSION) === 'php')) {
                     $files[] = $file;
                 }
             }
@@ -62,7 +64,12 @@ class DatabaseMigrator
         }
         
         // Sort files by name (which starts with a number)
-        sort($files);
+        usort($files, function($a, $b) {
+            return strcmp(
+                pathinfo($a, PATHINFO_FILENAME),
+                pathinfo($b, PATHINFO_FILENAME)
+            );
+        });
         
         return $files;
     }
@@ -72,14 +79,28 @@ class DatabaseMigrator
      */
     private function applyMigration(string $migration): bool
     {
-        $sql = file_get_contents($this->migrationsDir . $migration);
+        $extension = pathinfo($migration, PATHINFO_EXTENSION);
+        $migrationName = pathinfo($migration, PATHINFO_FILENAME);
         
         try {
             // Begin transaction
             $this->db->beginTransaction();
             
-            // Execute the migration SQL
-            $this->db->exec($sql);
+            if ($extension === 'sql') {
+                // Execute SQL migration
+                $sql = file_get_contents($this->migrationsDir . $migration);
+                $this->db->exec($sql);
+            } elseif ($extension === 'php') {
+                // Execute PHP migration
+                require_once $this->migrationsDir . $migration;
+                // Extract the class name from the file name (remove numbers and underscores)
+                $className = preg_replace('/^[0-9]+_/', '', pathinfo($migration, PATHINFO_FILENAME));
+                $className = str_replace('_', '', ucwords($className, '_'));
+                $migrationInstance = new $className($this->db);
+                if (method_exists($migrationInstance, 'up')) {
+                    $migrationInstance->up();
+                }
+            }
             
             // Record the migration
             $stmt = $this->db->prepare("INSERT INTO migrations (migration, batch) VALUES (?, 1)");

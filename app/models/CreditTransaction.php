@@ -5,6 +5,8 @@
  * Handles all database operations for the credit_transactions table.
  */
 
+namespace App\Models;
+
 class CreditTransaction extends Model {
     /**
      * @var string The database table name

@@ -1,10 +1,16 @@
 <?php
+namespace App\Libraries;
+
+use PDO;
+use PDOException;
+use App\Libraries\QueryBuilder;
+use App\Libraries\Database;
+
 /**
  * Base Model Class
  * 
  * Provides common database operations for all models.
  */
-
 abstract class Model {
     /**
      * @var string The database table name

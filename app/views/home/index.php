@@ -1,6 +1,10 @@
 <?php 
-// Set the content variable for the layout
-$content = <<<HTML
+// Set the title if not already set
+if (!isset($title)) {
+    $title = 'Welcome to CosmicHub';
+}
+?>
+
 <section class="hero">
     <div class="container">
         <h1>Welcome to CosmicHub</h1>
@@ -37,8 +41,3 @@ $content = <<<HTML
         </div>
     </div>
 </section>
-HTML;
-
-// Include the layout
-extract(get_defined_vars());
-?>

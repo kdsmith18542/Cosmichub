@@ -1,10 +1,15 @@
 <?php
+namespace App\Libraries;
+
+use PDO;
+use PDOException;
+use App\Libraries\Database;
+
 /**
  * Query Builder Class
  * 
  * Provides a fluent interface for building and executing database queries.
  */
-
 class QueryBuilder {
     /**
      * @var string The table to query

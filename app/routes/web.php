@@ -9,36 +9,58 @@ use App\Libraries\Router;
 $router = new Router();
 
 // Home page
-$router->addRoute('GET', '/', 'HomeController', 'index');
+$router->get('/', 'HomeController', 'index');
 
 // Authentication routes
-$router->addRoute('GET', '/login', 'AuthController', 'showLogin');
-$router->addRoute('POST', '/login', 'AuthController', 'login');
-$router->addRoute('GET', '/register', 'AuthController', 'showRegister');
-$router->addRoute('POST', '/register', 'AuthController', 'register');
-$router->addRoute('GET', '/logout', 'AuthController', 'logout');
+$router->get('/login', 'AuthController', 'loginForm')
+      ->post('/login', 'AuthController', 'login')
+      ->get('/register', 'AuthController', 'registerForm')
+      ->post('/register', 'AuthController', 'register')
+      ->get('/logout', 'AuthController', 'logout');
+
+// Email Verification Routes
+$router->get('/email/verify', 'VerificationController', 'show')
+      ->get('/email/verify/{id}/{token}', 'VerificationController', 'verify')
+      ->post('/email/verification-notification', 'VerificationController', 'resend');
+
+// Dashboard
+$router->get('/dashboard', 'DashboardController', 'index');
 
 // Report routes
-$router->addRoute('GET', '/reports', 'ReportController', 'index');
-$router->addRoute('GET', '/reports/create', 'ReportController', 'create');
-$router->addRoute('POST', '/reports', 'ReportController', 'store');
-$router->addRoute('GET', '/reports/{id}', 'ReportController', 'show');
-$router->addRoute('GET', '/reports/{id}/export/{format}', 'ReportController', 'export');
+$router->get('/reports', 'ReportController', 'index')
+      ->get('/reports/create', 'ReportController', 'create')
+      ->post('/reports', 'ReportController', 'store')
+      ->get('/reports/{id}', 'ReportController', 'show')
+      ->get('/reports/{id}/export/{format}', 'ReportController', 'export');
 
 // User profile
-$router->addRoute('GET', '/profile', 'UserController', 'profile');
-$router->addRoute('POST', '/profile', 'UserController', 'updateProfile');
+$router->get('/profile', 'UserController', 'profile')
+      ->post('/profile', 'UserController', 'updateProfile');
+
+// Payment routes
+$router->get('/payment/plans', 'PaymentController', 'plans')
+      ->get('/payment/checkout/{planId}', 'PaymentController', 'checkout')
+      ->post('/payment/process', 'PaymentController', 'process')
+      ->get('/payment/success', 'PaymentController', 'success')
+      ->get('/payment/cancel', 'PaymentController', 'cancel')
+      ->get('/payment/history', 'PaymentController', 'history')
+      ->post('/payment/webhook', 'PaymentController', 'webhook');
 
 // Subscription routes
-$router->addRoute('GET', '/subscription', 'SubscriptionController', 'index');
-$router->addRoute('POST', '/subscription/subscribe', 'SubscriptionController', 'subscribe');
-$router->addRoute('GET', '/subscription/cancel', 'SubscriptionController', 'cancel');
+$router->get('/subscription', 'SubscriptionController', 'index')
+      ->post('/subscription/subscribe', 'SubscriptionController', 'subscribe')
+      ->get('/subscription/cancel', 'SubscriptionController', 'cancel');
 
 // API routes
-$router->addRoute('GET', '/api/reports', 'Api\\ReportController', 'index');
-$router->addRoute('POST', '/api/reports', 'Api\\ReportController', 'store');
-$router->addRoute('GET', '/api/reports/{id}', 'Api\\ReportController', 'show');
-$router->addRoute('DELETE', '/api/reports/{id}', 'Api\\ReportController', 'destroy');
+$router->get('/api/reports', 'Api\\ReportController', 'index')
+      ->post('/api/reports', 'Api\\ReportController', 'store')
+      ->get('/api/reports/{id}', 'Api\\ReportController', 'show')
+      ->delete('/api/reports/{id}', 'Api\\ReportController', 'destroy');
+
+// Daily Vibe routes
+$router->get('/daily-vibe', 'DailyVibeController', 'index')
+      ->post('/daily-vibe/generate', 'DailyVibeController', 'generate')
+      ->get('/daily-vibe/history', 'DailyVibeController', 'history');
 
 // Return the router for use in index.php
 return $router;

@@ -18,6 +18,7 @@ class Router
      * @param string $path URL path
      * @param string $controller Controller class name
      * @param string $action Controller method name
+     * @return self Returns $this for method chaining
      */
     public function addRoute($method, $path, $controller, $action)
     {
@@ -27,6 +28,100 @@ class Router
             'controller' => $controller,
             'action' => $action
         ];
+        
+        return $this;
+    }
+    
+    /**
+     * Add a GET route
+     * 
+     * @param string $path URL path
+     * @param string $controller Controller class name
+     * @param string $action Controller method name
+     * @return self
+     */
+    public function get($path, $controller, $action)
+    {
+        return $this->addRoute('GET', $path, $controller, $action);
+    }
+    
+    /**
+     * Add a POST route
+     * 
+     * @param string $path URL path
+     * @param string $controller Controller class name
+     * @param string $action Controller method name
+     * @return self
+     */
+    public function post($path, $controller, $action)
+    {
+        return $this->addRoute('POST', $path, $controller, $action);
+    }
+    
+    /**
+     * Add a PUT route
+     * 
+     * @param string $path URL path
+     * @param string $controller Controller class name
+     * @param string $action Controller method name
+     * @return self
+     */
+    public function put($path, $controller, $action)
+    {
+        return $this->addRoute('PUT', $path, $controller, $action);
+    }
+    
+    /**
+     * Add a DELETE route
+     * 
+     * @param string $path URL path
+     * @param string $controller Controller class name
+     * @param string $action Controller method name
+     * @return self
+     */
+    public function delete($path, $controller, $action)
+    {
+        return $this->addRoute('DELETE', $path, $controller, $action);
+    }
+    
+    /**
+     * Add a PATCH route
+     * 
+     * @param string $path URL path
+     * @param string $controller Controller class name
+     * @param string $action Controller method name
+     * @return self
+     */
+    public function patch($path, $controller, $action)
+    {
+        return $this->addRoute('PATCH', $path, $controller, $action);
+    }
+    
+    /**
+     * Add a route that matches any HTTP method
+     * 
+     * @param string $path URL path
+     * @param string $controller Controller class name
+     * @param string $action Controller method name
+     * @return self
+     */
+    public function any($path, $controller, $action)
+    {
+        return $this->addRoute('ANY', $path, $controller, $action);
+    }
+    
+    /**
+     * Add multiple routes at once using an array
+     * 
+     * @param array $routes Array of routes in format [['method', 'path', 'controller', 'action'], ...]
+     * @return self
+     */
+    public function addRoutes(array $routes)
+    {
+        foreach ($routes as $route) {
+            $this->addRoute(...$route);
+        }
+        return $this;
     }
     
     /**
@@ -40,7 +135,10 @@ class Router
         foreach ($this->routes as $route) {
             $pattern = $this->convertToRegex($route['path']);
             
-            if ($route['method'] === $requestMethod && preg_match($pattern, $requestUri, $matches)) {
+            // Check if the route matches the request method or if it's set to 'ANY'
+            $methodMatches = ($route['method'] === $requestMethod || $route['method'] === 'ANY');
+            
+            if ($methodMatches && preg_match($pattern, $requestUri, $matches)) {
                 $params = array_filter($matches, 'is_string', ARRAY_FILTER_USE_KEY);
                 $this->callAction($route['controller'], $route['action'], $params);
                 return;

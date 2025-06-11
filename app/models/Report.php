@@ -5,6 +5,8 @@
  * Handles all database operations for the reports table.
  */
 
+namespace App\Models;
+
 class Report extends Model {
     /**
      * @var string The database table name

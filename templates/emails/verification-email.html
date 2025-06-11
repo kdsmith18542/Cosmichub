@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verify Your Email - CosmicHub</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            margin: 0;
+            padding: 0;
+            background-color: #f9f9f9;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        .header {
+            text-align: center;
+            padding: 20px 0;
+            border-bottom: 1px solid #eee;
+        }
+        .logo {
+            max-width: 200px;
+            height: auto;
+        }
+        .content {
+            padding: 30px 20px;
+        }
+        h1 {
+            color: #2c3e50;
+            margin-top: 0;
+        }
+        .button {
+            display: inline-block;
+            padding: 12px 24px;
+            background-color: #3498db;
+            color: #ffffff !important;
+            text-decoration: none;
+            border-radius: 4px;
+            font-weight: bold;
+            margin: 20px 0;
+        }
+        .button:hover {
+            background-color: #2980b9;
+        }
+        .footer {
+            text-align: center;
+            padding: 20px 0;
+            color: #7f8c8d;
+            font-size: 14px;
+            border-top: 1px solid #eee;
+            margin-top: 30px;
+        }
+        .code {
+            background-color: #f8f9fa;
+            padding: 10px 15px;
+            border-radius: 4px;
+            font-family: monospace;
+            word-break: break-all;
+            margin: 15px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <img src="https://cosmichub.online/assets/images/logo.png" alt="CosmicHub Logo" class="logo">
+        </div>
+        
+        <div class="content">
+            <h1>Verify Your Email Address</h1>
+            <p>Hello {{name}},</p>
+            <p>Thank you for registering with CosmicHub! To complete your registration, please verify your email address by clicking the button below:</p>
+            
+            <p style="text-align: center;">
+                <a href="{{verification_url}}" class="button">Verify Email Address</a>
+            </p>
+            
+            <p>Or copy and paste this link into your browser:</p>
+            <div class="code">{{verification_url}}</div>
+            
+            <p>This verification link will expire in 24 hours for security reasons.</p>
+            
+            <p>If you did not create an account, no further action is required.</p>
+            
+            <p>Best regards,<br>The CosmicHub Team</p>
+        </div>
+        
+        <div class="footer">
+            <p>&copy; 2025 CosmicHub. All rights reserved.</p>
+            <p>This email was sent to {{email}}. If you believe you received this email in error, please contact support.</p>
+        </div>
+    </div>
+</body>
+</html>

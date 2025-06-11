@@ -22,14 +22,20 @@ if (!file_exists($databaseFile)) {
     chmod($databaseFile, 0666);
 }
 
+// Set SQLite PRAGMAs for proper character handling
+$pdoOptions = [
+    PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+    PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+    PDO::ATTR_EMULATE_PREPARES => false,
+    PDO::MYSQL_ATTR_INIT_COMMAND => 'SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci',
+];
+
 return [
     'driver'    => 'sqlite',
     'database'  => $databaseFile,
     'prefix'    => '',
     'foreign_key_constraints' => true,
-    'options'   => [
-        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-        PDO::ATTR_EMULATE_PREPARES => false,
-    ],
+    'charset'   => 'utf8mb4',
+    'collation' => 'utf8mb4_unicode_ci',
+    'options'   => $pdoOptions,
 ];

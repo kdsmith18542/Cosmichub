@@ -1,10 +1,14 @@
 <?php
+namespace App\Libraries;
+
+use PDO;
+use PDOException;
+
 /**
  * Database Connection Class
  * 
  * Handles the database connection and provides common database operations.
  */
-
 class Database {
     /**
      * @var PDO Database connection

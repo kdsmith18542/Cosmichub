@@ -28,6 +28,38 @@ if (!function_exists('config')) {
     }
 }
 
+if (!function_exists('loadEnv')) {
+    /**
+     * Load environment variables from .env file
+     */
+    function loadEnv($path) {
+        if (!file_exists($path)) {
+            return false;
+        }
+        
+        $lines = file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+        
+        foreach ($lines as $line) {
+            // Skip comments
+            if (strpos(trim($line), '#') === 0) {
+                continue;
+            }
+            
+            // Parse the line
+            list($name, $value) = array_map('trim', explode('=', $line, 2));
+            $name = trim($name);
+            $value = trim($value, "'\" ");
+            
+            if (!array_key_exists($name, $_ENV)) {
+                $_ENV[$name] = $value;
+                putenv("$name=$value");
+            }
+        }
+        
+        return true;
+    }
+}
+
 if (!function_exists('env')) {
     /**
      * Gets the value of an environment variable
@@ -37,29 +69,27 @@ if (!function_exists('env')) {
      * @return mixed
      */
     function env($key, $default = null) {
+        // First check getenv()
         $value = getenv($key);
+        
+        // Then check $_ENV
+        if ($value === false && array_key_exists($key, $_ENV)) {
+            $value = $_ENV[$key];
+        }
         
         if ($value === false) {
             return $default;
         }
         
-        switch (strtolower($value)) {
-            case 'true':
-            case '(true)':
-                return true;
-            case 'false':
-            case '(false)':
-                return false;
-            case 'empty':
-            case '(empty)':
-                return '';
-            case 'null':
-            case '(null)':
-                return null;
+        // Convert string booleans to actual booleans
+        $lowerValue = strtolower($value);
+        if (in_array($lowerValue, ['true', 'false'])) {
+            return $lowerValue === 'true';
         }
         
-        if (preg_match('/\A([\'\"])(.*)\1\z/', $value, $matches)) {
-            return $matches[2];
+        // Convert numeric strings to numbers
+        if (is_numeric($value)) {
+            return strpos($value, '.') === false ? (int)$value : (float)$value;
         }
         
         return $value;
@@ -188,13 +218,15 @@ if (!function_exists('csrf_token')) {
     /**
      * Get the CSRF token value
      * 
+     * @param string $formName The name/identifier for the form
      * @return string
      */
-    function csrf_token() {
-        if (!session('_token')) {
-            session(['_token' => bin2hex(random_bytes(32))]);
+    function csrf_token($formName = 'default')
+    {
+        if (!class_exists('App\\Libraries\\Security\\CSRF')) {
+            require_once __DIR__ . '/Libraries/Security/CSRF.php';
         }
-        return session('_token');
+        return \App\Libraries\Security\CSRF::generateToken($formName);
     }
 }
 
@@ -202,10 +234,49 @@ if (!function_exists('csrf_field')) {
     /**
      * Generate a CSRF token form field
      * 
+     * @param string $formName The name/identifier for the form
      * @return string
      */
-    function csrf_field() {
-        return '<input type="hidden" name="_token" value="' . csrf_token() . '">';
+    function csrf_field($formName = 'default')
+    {
+        if (!class_exists('App\\Libraries\\Security\\CSRF')) {
+            require_once __DIR__ . '/Libraries/Security/CSRF.php';
+        }
+        return '\n' . \App\Libraries\Security\CSRF::getTokenField($formName);
+    }
+}
+
+if (!function_exists('csrf_verify')) {
+    /**
+     * Verify the CSRF token for the current request
+     * 
+     * @param string $formName The name/identifier for the form
+     * @param bool $throwException Whether to throw an exception on failure
+     * @return bool
+     * @throws \RuntimeException If token is invalid and $throwException is true
+     */
+    function csrf_verify($formName = 'default', $throwException = true)
+    {
+        if (!class_exists('App\\Libraries\\Security\\CSRF')) {
+            require_once __DIR__ . '/Libraries/Security/CSRF.php';
+        }
+        
+        $token = $_POST['_token'] ?? $_GET['_token'] ?? '';
+        return \App\Libraries\Security\CSRF::validateToken($token, $formName);
+    }
+}
+
+if (!function_exists('csrf_verify_request')) {
+    /**
+     * Verify the CSRF token for the current request and throw an exception if invalid
+     * 
+     * @param string $formName The name/identifier for the form
+     * @return bool
+     * @throws \RuntimeException If token is invalid
+     */
+    function csrf_verify_request($formName = 'default')
+    {
+        return csrf_verify($formName, true);
     }
 }
 
