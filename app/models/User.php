@@ -59,11 +59,12 @@ class User extends Model {
         'subscription_status',
         'subscription_ends_at',
         'email_verified_at',
-        'email_verification_token',
         'email_verification_sent_at',
+        'email_verification_attempts',
         'remember_token',
         'birthdate',
-        'zodiac_sign'
+        'zodiac_sign',
+        'stripe_customer_id' // Added for Stripe integration
     ];
     
     /**
@@ -74,7 +75,7 @@ class User extends Model {
     protected $hidden = [
         'password',
         'remember_token',
-        'email_verification_token'
+        'remember_token'
     ];
     
     /**
@@ -86,7 +87,8 @@ class User extends Model {
         'email_verified_at' => 'datetime',
         'email_verification_sent_at' => 'datetime',
         'subscription_ends_at' => 'datetime',
-        'credits' => 'integer'
+        'credits' => 'integer',
+        'email_verification_attempts' => 'integer'
     ];
     
     /**
@@ -191,6 +193,21 @@ class User extends Model {
     {
         return !empty($this->email_verified_at);
     }
+
+    /**
+     * Deduct credits from the user's account.
+     *
+     * @param int $amount The number of credits to deduct.
+     * @return bool True if credits were successfully deducted, false otherwise.
+     */
+    public function deductCredits($amount)
+    {
+        if ($this->credits >= $amount) {
+            $this->credits -= $amount;
+            return $this->save();
+        }
+        return false;
+    }
     
     /**
      * Mark the user's email as verified
@@ -268,7 +285,7 @@ class User extends Model {
      * @param string $token
      * @return array ['success' => bool, 'message' => string]
      */
-    public function verifyEmail($token) {
+    public function verifyEmail($rawToken) {
         // Check if email is already verified
         if ($this->hasVerifiedEmail()) {
             return [
@@ -276,43 +293,70 @@ class User extends Model {
                 'message' => 'Email is already verified.'
             ];
         }
-        
-        // Check if token matches
-        if (empty($this->email_verification_token) || $this->email_verification_token !== $token) {
+
+        // Get the latest valid token
+        $userToken = UserToken::where('user_id', $this->getKey())
+            ->where('type', 'email_verification')
+            ->where('used_at', null)
+            ->where('invalidated_at', null)
+            ->where('expires_at', '>', date('Y-m-d H:i:s'))
+            ->orderBy('created_at', 'desc')
+            ->first();
+
+        if (!$userToken) {
             return [
                 'success' => false,
-                'message' => 'Invalid verification token.'
-            ];
-        }
-        
-        // Check if token is expired (24 hours)
-        if ($this->isVerificationTokenExpired()) {
-            return [
-                'success' => false,
-                'message' => 'Verification token has expired. Please request a new one.',
+                'message' => 'Verification token has expired or is invalid. Please request a new one.',
                 'expired' => true
             ];
         }
-        
+
+        // Increment token attempts
+        $userToken->attempts = ($userToken->attempts ?? 0) + 1;
+        $userToken->save();
+
+        // Check for too many attempts on this token
+        if ($userToken->attempts > 5) {
+            $userToken->invalidated_at = date('Y-m-d H:i:s');
+            $userToken->save();
+            return [
+                'success' => false,
+                'message' => 'Too many verification attempts. Please request a new verification email.',
+                'expired' => true
+            ];
+        }
+
         try {
+            // Verify the token
+            if (!password_verify($rawToken, $userToken->token)) {
+                return [
+                    'success' => false,
+                    'message' => 'Invalid verification token.'
+                ];
+            }
+
             // Update user record
             $this->email_verified_at = date('Y-m-d H:i:s');
-            $this->email_verification_token = null;
             $this->email_verification_sent_at = null;
+            $this->email_verification_attempts = 0; // Reset attempts on success
             $this->status = 'active';
-            
+
+            // Mark token as used
+            $userToken->used_at = date('Y-m-d H:i:s');
+            $userToken->save();
+
             if ($this->save()) {
                 return [
                     'success' => true,
                     'message' => 'Email verified successfully! You can now log in.'
                 ];
             }
-            
+
             return [
                 'success' => false,
                 'message' => 'Failed to update user record.'
             ];
-            
+
         } catch (\Exception $e) {
             error_log('Email verification error: ' . $e->getMessage());
             return [

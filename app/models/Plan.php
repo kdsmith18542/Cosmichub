@@ -27,8 +27,10 @@ class Plan extends Model {
         'features',
         'is_active',
         'credits',
+        'credits_on_renewal',
         'created_at',
-        'updated_at'
+        'updated_at',
+        'stripe_price_id' // Added for Stripe integration
     ];
     
     /**
@@ -40,6 +42,7 @@ class Plan extends Model {
         'price' => 'float',
         'is_active' => 'boolean',
         'credits' => 'integer',
+        'credits_on_renewal' => 'integer',
         'features' => 'array',
         'created_at' => 'datetime',
         'updated_at' => 'datetime'

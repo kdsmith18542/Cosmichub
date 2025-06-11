@@ -22,6 +22,8 @@ return [
         'debug' => env('APP_DEBUG', false),
         'url' => env('APP_URL', 'http://cosmichub.local'),
         'timezone' => env('TIMEZONE', 'UTC'),
+        'date_format' => env('DATE_FORMAT', 'm/d/Y'), // USA Date Format (MM/DD/YYYY)
+        'time_format' => env('TIME_FORMAT', 'h:i A'),   // 12-hour Time Format (e.g., 03:30 PM)
     ],
     
     // Database configuration

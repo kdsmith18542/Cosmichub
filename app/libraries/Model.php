@@ -5,6 +5,8 @@ use PDO;
 use PDOException;
 use App\Libraries\QueryBuilder;
 use App\Libraries\Database;
+use function App\Helpers\snake_case;
+use function App\Helpers\class_basename;
 
 /**
  * Base Model Class
@@ -198,6 +200,33 @@ abstract class Model {
      * @return bool
      */
     public function delete() {
+
+    /**
+     * Define a one-to-one or one-to-many inverse relationship.
+     *
+     * @param string $related The name of the related model.
+     * @param string $foreignKey The foreign key of the relationship.
+     * @param string $ownerKey The key on the parent model.
+     * @return Model|null
+     */
+    public function belongsTo($related, $foreignKey = null, $ownerKey = null)
+    {
+        $foreignKey = $foreignKey ?: $this->getForeignKey();
+        $ownerKey = $ownerKey ?: (new $related)->getKeyName();
+
+        $relatedModel = new $related();
+        return $relatedModel->find($this->{$foreignKey});
+    }
+
+    /**
+     * Get the default foreign key name for the model.
+     *
+     * @return string
+     */
+    public function getForeignKey()
+    {
+        return snake_case(class_basename($this)) . '_id';
+    }
         if (!$this->exists) {
             return false;
         }

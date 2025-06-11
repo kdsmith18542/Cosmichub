@@ -19,9 +19,10 @@ $router->get('/login', 'AuthController', 'loginForm')
       ->get('/logout', 'AuthController', 'logout');
 
 // Email Verification Routes
-$router->get('/email/verify', 'VerificationController', 'show')
-      ->get('/email/verify/{id}/{token}', 'VerificationController', 'verify')
-      ->post('/email/verification-notification', 'VerificationController', 'resend');
+$router->get('/email/verify', 'EmailVerificationController', 'notice')
+      ->get('/email/verify/{id}/{token}', 'EmailVerificationController', 'verify')
+      ->post('/email/verification-notification', 'EmailVerificationController', 'resend')
+      ->get('/email/verify/resend', 'EmailVerificationController', 'showResendForm');
 
 // Dashboard
 $router->get('/dashboard', 'DashboardController', 'index');
@@ -30,8 +31,19 @@ $router->get('/dashboard', 'DashboardController', 'index');
 $router->get('/reports', 'ReportController', 'index')
       ->get('/reports/create', 'ReportController', 'create')
       ->post('/reports', 'ReportController', 'store')
+      ->get('/reports/preview', 'ReportController', 'preview')
+      ->post('/reports/clear-temp', 'ReportController', 'clearTemp')
       ->get('/reports/{id}', 'ReportController', 'show')
-      ->get('/reports/{id}/export/{format}', 'ReportController', 'export');
+      ->get('/reports/{id}/export/{format}', 'ReportController', 'export')
+      ->delete('/reports/{id}', 'ReportController', 'destroy');
+$router->get('/reports/unlock/{id}', 'ReportController', 'unlock')
+      ->get('/reports/{id}/export/{format}', 'ReportController', 'export')
+      ->delete('/reports/{id}', 'ReportController', 'destroy');
+
+// Credit Routes
+$router->get('/credits', 'CreditController', 'index')
+      ->post('/credits/purchase', 'CreditController', 'purchase')
+      ->get('/credits/history', 'CreditController', 'history');
 
 // User profile
 $router->get('/profile', 'UserController', 'profile')
@@ -47,9 +59,10 @@ $router->get('/payment/plans', 'PaymentController', 'plans')
       ->post('/payment/webhook', 'PaymentController', 'webhook');
 
 // Subscription routes
-$router->get('/subscription', 'SubscriptionController', 'index')
-      ->post('/subscription/subscribe', 'SubscriptionController', 'subscribe')
-      ->get('/subscription/cancel', 'SubscriptionController', 'cancel');
+$router->get('/subscription', 'SubscriptionController', 'index') // View current subscription
+      ->get('/subscription/checkout/{planId}', 'PaymentController', 'subscriptionCheckoutForm') // Show subscription checkout form
+      ->post('/subscription/subscribe', 'PaymentController', 'subscribeToPlan') // Create/initiate a new subscription
+      ->post('/subscription/cancel', 'SubscriptionController', 'cancel'); // Cancel an existing subscription
 
 // API routes
 $router->get('/api/reports', 'Api\\ReportController', 'index')
@@ -61,6 +74,30 @@ $router->get('/api/reports', 'Api\\ReportController', 'index')
 $router->get('/daily-vibe', 'DailyVibeController', 'index')
       ->post('/daily-vibe/generate', 'DailyVibeController', 'generate')
       ->get('/daily-vibe/history', 'DailyVibeController', 'history');
+
+// Compatibility routes
+$router->get('/compatibility', 'CompatibilityController', 'index')
+      ->post('/compatibility/generate', 'CompatibilityController', 'generate');
+
+// Rarity Score routes
+$router->get('/rarity-score', 'RarityScoreController', 'index')
+      ->post('/rarity-score/calculate', 'RarityScoreController', 'calculate')
+      ->get('/rarity-score/share-link', 'RarityScoreController', 'generateShareLink');
+
+// Celebrity Reports
+$router->get('/celebrity-reports', 'CelebrityReportController', 'index')
+      ->get('/celebrity-reports/create', 'CelebrityReportController', 'create')
+      ->post('/celebrity-reports', 'CelebrityReportController', 'store')
+      ->get('/celebrity-reports/search', 'CelebrityReportController', 'search')
+      ->get('/celebrity-reports/birthdate/{month}/{day}', 'CelebrityReportController', 'getByBirthDate')
+      ->get('/celebrity-reports/{slug}', 'CelebrityReportController', 'show');
+
+// Archetype Hub routes
+$router->get('/archetypes', 'ArchetypeController', 'index');
+$router->get('/archetypes/{slug}', 'ArchetypeController', 'show');
+$router->post('/archetypes/{slug}/comment', 'ArchetypeController', 'storeComment');
+
+// Add more routes here
 
 // Return the router for use in index.php
 return $router;

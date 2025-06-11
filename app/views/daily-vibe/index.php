@@ -8,6 +8,11 @@
                 <div class="card-header bg-stellar text-white">
                     <h2 class="h4 mb-0">Your Daily Cosmic Vibe</h2>
                     <p class="mb-0 text-light"><?= date('l, F j, Y') ?></p>
+                    <?php if (isset($streakCount) && $streakCount > 1): ?>
+                        <div class="mt-2">
+                            <span class="badge bg-success">🔥 <?= $streakCount ?>-day streak!</span>
+                        </div>
+                    <?php endif; ?>
                 </div>
                 <div class="card-body text-center py-5">
                     <?php if ($todaysVibe) : ?>

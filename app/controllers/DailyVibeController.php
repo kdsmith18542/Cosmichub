@@ -34,12 +34,13 @@ class DailyVibeController extends \App\Libraries\Controller {
         // Get today's vibe if it exists
         $todaysVibe = $dailyVibe->getTodaysVibe($userId);
         $vibeHistory = $dailyVibe->getVibeHistory($userId, 7);
-        
+        $streakCount = $dailyVibe->getStreakCount($userId);
         $data = [
             'pageTitle' => 'Your Daily Cosmic Vibe',
             'todaysVibe' => $todaysVibe,
             'vibeHistory' => $vibeHistory,
-            'user' => (object)['id' => $userId]
+            'user' => (object)['id' => $userId],
+            'streakCount' => $streakCount
         ];
         
         $this->view('daily-vibe/index', $data);

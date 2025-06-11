@@ -10,7 +10,7 @@
                             <i class="fas fa-check-circle text-success" style="font-size: 3rem;"></i>
                         </div>
                         <h1 class="h2 mb-3">Payment Successful!</h1>
-                        <p class="lead"><?php echo $message ?? 'Thank you for your purchase. Your credits have been added to your account.'; ?></p>
+                        <p class="lead"><?php echo e($message ?? 'Thank you for your purchase. Your credits have been added to your account.'); ?></p>
                     </div>
                     
                     <div class="card bg-light mb-4">
@@ -25,7 +25,7 @@
                             </div>
                             <div class="d-flex justify-content-between align-items-center">
                                 <span class="text-muted">Credits Added</span>
-                                <span class="badge bg-primary rounded-pill">+<?php echo $_GET['credits'] ?? '0'; ?></span>
+                                <span class="badge bg-primary rounded-pill">+<?php echo e($_GET['credits'] ?? '0'); ?></span>
                             </div>
                         </div>
                     </div>

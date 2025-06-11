@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?php echo $title ?? 'CosmicHub.Online'; ?></title>
+    <title><?php echo e($title ?? 'CosmicHub.Online'); ?></title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Font Awesome -->
@@ -22,8 +22,17 @@
                     <?php if (isset($_SESSION['user_id'])): ?>
                         <a href="/dashboard" class="px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:text-gray-900">Dashboard</a>
                         <a href="/reports" class="px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:text-gray-900">My Reports</a>
+                        <a href="/celebrity-reports" class="px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:text-gray-900">Celebrity Almanac</a>
+                        <a href="/archetypes" class="px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:text-gray-900">Archetype Hubs</a>
+                        <a href="/credits" class="px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:text-gray-900">Credits</a>
                         <a href="/daily-vibe" class="px-3 py-2 rounded-md text-sm font-medium text-indigo-600 hover:text-indigo-800 font-semibold">
                             <i class="fas fa-moon-stars mr-1"></i> Daily Vibe
+                        </a>
+                        <a href="/compatibility" class="px-3 py-2 rounded-md text-sm font-medium text-pink-600 hover:text-pink-800 font-semibold">
+                            <i class="fas fa-heart mr-1"></i> Compatibility
+                        </a>
+                        <a href="/rarity-score" class="px-3 py-2 rounded-md text-sm font-medium text-purple-600 hover:text-purple-800 font-semibold">
+                            <i class="fas fa-star mr-1"></i> Rarity Score
                         </a>
                         <div class="ml-3 relative">
                             <div>

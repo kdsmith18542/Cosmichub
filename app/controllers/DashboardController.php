@@ -66,12 +66,31 @@ class DashboardController extends \App\Libraries\Controller {
             // Get recent reports with basic details (last 3)
             $recentReports = [];
             
+            // Calculate rarity score if user has birthdate
+            $rarityScore = null;
+            $rarityDescription = null;
+            $rarityColor = null;
+            
+            if (!empty($user->birthdate)) {
+                // Load the RarityScoreController
+                require_once __DIR__ . '/RarityScoreController.php';
+                $rarityController = new RarityScoreController();
+                
+                // Calculate the rarity score
+                $rarityScore = $rarityController->calculateRarityScore($user->birthdate);
+                $rarityDescription = $rarityController->getRarityDescription($rarityScore);
+                $rarityColor = $rarityController->getRarityColor($rarityScore);
+            }
+            
             // Prepare view data
             $data = [
                 'pageTitle' => 'Dashboard',
                 'user' => $user,
                 'recentTransactions' => $recentTransactions,
-                'recentReports' => $recentReports
+                'recentReports' => $recentReports,
+                'rarityScore' => $rarityScore,
+                'rarityDescription' => $rarityDescription,
+                'rarityColor' => $rarityColor
             ];
             
             // Load the dashboard view

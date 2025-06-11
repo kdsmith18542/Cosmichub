@@ -23,13 +23,17 @@ class Report extends Model {
      */
     protected $fillable = [
         'user_id',
-        'type',
-        'name',
-        'birth_data',
-        'status',
+        'title',
+        'birth_date',
         'content',
+        'summary',
+        'has_events',
+        'has_births',
+        'has_deaths',
         'created_at',
-        'updated_at'
+        'updated_at',
+        'is_unlocked',
+        'unlock_method'
     ];
     
     /**
@@ -41,7 +45,8 @@ class Report extends Model {
         'birth_data' => 'array',
         'content' => 'array',
         'created_at' => 'datetime',
-        'updated_at' => 'datetime'
+        'updated_at' => 'datetime',
+        'is_unlocked' => 'boolean'
     ];
     
     /**
@@ -62,12 +67,22 @@ class Report extends Model {
     const STATUS_FAILED = 'failed';
     
     /**
-     * Get the user that owns the report
-     * 
-     * @return User|null
+     * Get the user that owns the report.
      */
-    public function user() {
-        return User::find($this->user_id);
+    public function user()
+    {
+        return $this->belongsTo(User::class, 'user_id');
+    }
+
+    /**
+     * Find all reports by a given user ID.
+     *
+     * @param int $userId
+     * @return array
+     */
+    public static function findAllByUserId(int $userId)
+    {
+        return static::where('user_id', $userId)->get();
     }
     
     /**
@@ -254,5 +269,27 @@ class Report extends Model {
         $date = date('Y-m-d', strtotime($this->created_at));
         
         return "{$name}_{$type}_{$date}.{$format}";
+    }
+    
+    /**
+     * Check if the report is unlocked
+     *
+     * @return bool
+     */
+    public function isUnlocked() {
+        return (bool) $this->is_unlocked;
+    }
+
+    /**
+     * Set the report as unlocked
+     *
+     * @param string $method
+     * @return bool
+     */
+    public function unlock($method = null) {
+        $this->is_unlocked = true;
+        $this->unlock_method = $method;
+        $this->updated_at = date('Y-m-d H:i:s');
+        return $this->save();
     }
 }

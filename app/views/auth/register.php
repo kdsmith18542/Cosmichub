@@ -24,7 +24,7 @@
                     </div>
                     <div class="ml-3">
                         <p class="text-sm text-red-700">
-                            <?php echo $error; ?>
+                            <?php echo e($error); ?>
                         </p>
                     </div>
                 </div>

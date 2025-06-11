@@ -16,24 +16,33 @@ class EmailVerificationController extends Controller
      */
     public function notice()
     {
-        // Check if user is logged in
-        if (!isset($_SESSION['user_id'])) {
-            $this->setFlash('error', 'Please log in to verify your email.');
-            return $this->redirect('/login');
+        if (!\App\Helpers\Auth::is_logged_in()) {
+            Session::setFlash('error', 'Please log in to access this page.');
+            return redirect('/login');
         }
-        
-        $user = User::find($_SESSION['user_id']);
-        
-        // Redirect if already verified
-        if ($user && $user->hasVerifiedEmail()) {
-            $this->setFlash('info', 'Your email has already been verified.');
-            return $this->redirect('/dashboard');
+
+        $user = User::findById(Auth::get_current_user_id());
+
+        if (!$user) {
+            Session::setFlash('error', 'User not found. Please log in again.');
+            Auth::logout(); // Log out if user session is invalid
+            return redirect('/login');
         }
-        
-        return $this->view('auth.verify-email', [
-            'title' => 'Verify Email Address',
-            'email' => $user ? $user->email : null,
-            'resendUrl' => '/email/verification-notification'
+
+        if ($user->hasVerifiedEmail()) {
+            Session::setFlash('info', 'Your email is already verified.');
+            return redirect('/dashboard');
+        }
+
+        // Pass any messages from resend attempts
+        $emailSentStatus = Session::getFlash('email_sent_status');
+        $errorMessage = Session::getFlash('error_message');
+
+        return view('auth/verify-email-notice', [
+            'title' => 'Verify Your Email Address',
+            'email' => $user->getEmailForVerification(),
+            'email_sent_status' => $emailSentStatus,
+            'error_message' => $errorMessage
         ]);
     }
     
@@ -45,98 +54,109 @@ class EmailVerificationController extends Controller
      */
     public function verify($userId, $token)
     {
-        try {
-            // Find the user
-            $user = User::find($userId);
-            
-            if (!$user) {
-                throw new Exception('Invalid verification link. User not found.');
+        if (!is_numeric($userId)) {
+            Session::setFlash('error', 'Invalid user ID format.');
+            return redirect('/login');
+        }
+
+        $user = User::findById((int)$userId);
+
+        if (!$user) {
+            Session::setFlash('error', 'Invalid verification link. User not found.');
+            return redirect('/login');
+        }
+
+        if ($user->hasVerifiedEmail()) {
+            Session::setFlash('info', 'Your email is already verified. You can login now.');
+            // If user is somehow not logged in but verifying, log them in.
+            if (!Auth::is_logged_in()) {
+                Auth::login($user);
             }
-            
-            // Check if already verified
-            if ($user->hasVerifiedEmail()) {
-                $this->setFlash('success', 'Your email has already been verified.');
-                return $this->redirect('/dashboard');
+            return redirect('/dashboard');
+        }
+
+        $result = $user->verifyEmail($token); // $token is the raw token from URL
+
+        if ($result['success']) {
+            Session::setFlash('success', $result['message']);
+            // Ensure user is logged in after successful verification
+            if (!Auth::is_logged_in()) {
+                Auth::login($user);
             }
-            
-            // Verify the token
-            $result = $user->verifyEmail($token);
-            
-            if ($result['success']) {
-                $this->setFlash('success', $result['message']);
-                
-                // Log in the user if not already logged in
-                if (!isset($_SESSION['user_id'])) {
-                    $_SESSION['user_id'] = $user->id;
-                    $_SESSION['user_email'] = $user->email;
-                }
-                
-                return $this->redirect('/dashboard');
-            } else {
-                throw new Exception($result['message']);
+            return redirect('/dashboard');
+        } else {
+            Session::setFlash('error', $result['message']);
+            if (isset($result['expired']) && $result['expired']) {
+                return redirect('/email/verify/resend?email=' . urlencode($user->getEmailForVerification()));
             }
-            
-            // This code is unreachable due to the return statement above
-            // Keeping it for reference but should be removed in production
-            // throw new Exception('Unexpected code execution path');
-            
-        } catch (Exception $e) {
-            $this->setFlash('error', $e->getMessage());
-            return $this->redirect('/email/verify');
+            return redirect('/email/verify/notice');
         }
     }
     
     /**
      * Resend the email verification notification
      */
-    public function resend()
+    public function resend(Request $request = null) // Make Request optional for direct calls
     {
-        // Check if user is logged in
-        if (!isset($_SESSION['user_id'])) {
-            return $this->json([
-                'success' => false,
-                'message' => 'You must be logged in to resend the verification email.'
-            ], 401);
-        }
-        
-        $user = User::find($_SESSION['user_id']);
-        
-        if (!$user) {
-            return $this->json([
-                'success' => false,
-                'message' => 'User not found.'
-            ], 404);
-        }
-        
-        if ($user->hasVerifiedEmail()) {
-            return $this->json([
-                'success' => false,
-                'message' => 'Your email is already verified.'
-            ], 400);
-        }
-        
-        try {
-            // Create a new verification token
-            $token = $user->createEmailVerificationToken();
-            
-            // Send the verification email
-            $emailSent = $user->sendEmailVerificationNotification();
-            
-            if ($emailSent) {
-                return $this->json([
-                    'success' => true,
-                    'message' => 'A fresh verification link has been sent to your email address.'
-                ]);
-            } else {
-                throw new Exception('Failed to send verification email.');
+        $email = null;
+        if ($request && $request->isPost()) {
+            // CSRF check for POST requests
+            if (!csrf_verify($request)) {
+                Session::setFlash('error', 'Invalid request. Please try again.');
+                return redirect('/email/verify/resend');
             }
-            
-        } catch (\Exception $e) {
-            error_log('Failed to resend verification email: ' . $e->getMessage());
-            return $this->json([
-                'success' => false,
-                'message' => 'Unable to send verification email. Please try again later.'
-            ], 500);
+            $email = $request->input('email');
+        } elseif (Auth::is_logged_in()) {
+            $currentUser = User::findById(Auth::get_current_user_id());
+            if ($currentUser) $email = $currentUser->email;
         }
+
+        if (empty($email)) {
+            Session::setFlash('error', 'Email address is required.');
+            return redirect('/email/verify/resend');
+        }
+
+        $user = User::findByEmail($email);
+
+        if (!$user) {
+            // To prevent user enumeration, show a generic message
+            Session::setFlash('email_sent_status', 'success'); // Pretend success
+            Session::setFlash('success', 'If an account with that email exists and requires verification, a new link has been sent.');
+            return redirect('/email/verify/notice');
+        }
+
+        if ($user->hasVerifiedEmail()) {
+            Session::setFlash('info', 'Your email is already verified.');
+            return redirect(Auth::is_logged_in() ? '/dashboard' : '/login');
+        }
+
+        $emailService = new EmailService();
+        $sendResult = $emailService->sendVerificationEmail($user);
+
+        if ($sendResult['success']) {
+            Session::setFlash('success', $sendResult['message']);
+            Session::setFlash('email_sent_status', 'success');
+        } else {
+            Session::setFlash('error', $sendResult['message']);
+            Session::setFlash('email_sent_status', 'failed');
+            Session::setFlash('error_message', $sendResult['message']); // For notice page
+        }
+        
+        return redirect('/email/verify/notice');
+    }
+
+    /**
+     * Show the form to request a new verification email.
+     */
+    public function showResendForm(Request $request = null)
+    {
+        $email = $request ? $request->input('email', '') : '';
+        if (empty($email) && Auth::is_logged_in()) {
+            $currentUser = User::findById(Auth::get_current_user_id());
+            if ($currentUser && !$currentUser->hasVerifiedEmail()) {
+                $email = $currentUser->email;
+            }
+        }
+        return view('auth/verify-email-resend-form', ['email' => $email, 'title' => 'Resend Verification Email']);
     }
 }

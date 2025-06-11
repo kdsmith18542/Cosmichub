@@ -10,7 +10,7 @@
                             <i class="fas fa-exclamation-triangle text-warning" style="font-size: 3rem;"></i>
                         </div>
                         <h1 class="h2 mb-3">Payment Cancelled</h1>
-                        <p class="lead"><?php echo $message ?? 'Your payment was not completed. No charges were made to your account.'; ?></p>
+                        <p class="lead"><?php echo e($message ?? 'Your payment was not completed. No charges were made to your account.'); ?></p>
                     </div>
                     
                     <div class="card bg-light mb-4">

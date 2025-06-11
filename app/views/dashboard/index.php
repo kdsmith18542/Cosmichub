@@ -33,7 +33,7 @@
 
     <!-- Stats Cards -->
     <div class="px-4 mb-8">
-        <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+        <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-5">
             <!-- Credits Card -->
             <div class="bg-white overflow-hidden shadow rounded-lg">
                 <div class="px-4 py-5 sm:p-6">
@@ -148,6 +148,67 @@
                     </div>
                 </div>
             </div>
+            
+            <!-- Rarity Score Card -->
+            <?php if (isset($rarityScore)): ?>
+            <div class="bg-white overflow-hidden shadow rounded-lg">
+                <div class="px-4 py-5 sm:p-6">
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0 rounded-md p-3" style="background-color: <?php echo e($rarityColor); ?>">
+                            <svg class="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                            </svg>
+                        </div>
+                        <div class="ml-5 w-0 flex-1">
+                            <dl>
+                                <dt class="text-sm font-medium text-gray-500 truncate">
+                                    Birthday Rarity Score
+                                </dt>
+                                <dd class="flex items-baseline">
+                                    <div class="text-2xl font-semibold text-gray-900">
+                                        <?php echo e($rarityScore); ?>/100
+                                    </div>
+                                    <div class="ml-2 flex items-baseline text-sm font-semibold">
+                                        <span class="px-2 py-1 rounded-full text-xs" style="background-color: <?php echo e($rarityColor); ?>; color: white;">
+                                            <?php echo e($rarityDescription); ?>
+                                        </span>
+                                    </div>
+                                </dd>
+                            </dl>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <?php else: ?>
+            <div class="bg-white overflow-hidden shadow rounded-lg">
+                <div class="px-4 py-5 sm:p-6">
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0 bg-gray-400 rounded-md p-3">
+                            <svg class="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                        </div>
+                        <div class="ml-5 w-0 flex-1">
+                            <dl>
+                                <dt class="text-sm font-medium text-gray-500 truncate">
+                                    Birthday Rarity Score
+                                </dt>
+                                <dd class="flex items-baseline">
+                                    <div class="text-sm text-gray-500">
+                                        Add your birthdate to see how rare your birthday is!
+                                    </div>
+                                    <div class="ml-2 flex items-baseline text-sm font-semibold">
+                                        <a href="/profile" class="text-indigo-600 hover:text-indigo-500">
+                                            Add Now
+                                        </a>
+                                    </div>
+                                </dd>
+                            </dl>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <?php endif; ?>
         </div>
     </div>
                 
@@ -199,7 +260,7 @@
                                                 </p>
                                                 <div class="ml-2 flex-shrink-0 flex">
                                                     <p class="text-sm font-medium <?php echo $transaction->type === 'credit' ? 'text-green-600' : 'text-red-600'; ?>">
-                                                        <?php echo $transaction->type === 'credit' ? '+' : '-'; ?><?php echo number_format($transaction->amount); ?>
+                                                        <?php echo e($transaction->type === 'credit' ? '+' : '-'); ?><?php echo e(number_format($transaction->amount)); ?>
                                                     </p>
                                                 </div>
                                             </div>
@@ -258,7 +319,7 @@
                         <ul class="divide-y divide-gray-200">
                             <?php foreach ($recentReports as $report): ?>
                                 <li class="px-6 py-4 hover:bg-gray-50">
-                                    <a href="/reports/<?php echo $report->id; ?>" class="block">
+                                    <a href="/reports/<?php echo e($report->id); ?>" class="block">
                                         <div class="flex items-center">
                                             <div class="flex-shrink-0">
                                                 <div class="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center">

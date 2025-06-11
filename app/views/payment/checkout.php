@@ -56,7 +56,7 @@
                             
                             <form id="payment-form" action="/process-payment" method="post">
                                 <?php csrf_field('payment_form'); ?>
-                                <input type="hidden" name="plan_id" value="<?php echo $plan->id; ?>">
+                                <input type="hidden" name="plan_id" value="<?php echo e($plan->id); ?>">
                                 
                                 <div class="mb-3">
                                     <label for="card-element" class="form-label">Credit or Debit Card</label>

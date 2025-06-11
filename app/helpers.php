@@ -201,6 +201,146 @@ if (!function_exists('flash')) {
     }
 }
 
+if (!function_exists('snake_case')) {
+    /**
+     * Convert a string to snake_case.
+     *
+     * @param string $value
+     * @return string
+     */
+    function snake_case($value)
+    {
+        $value = preg_replace('/\s+/u', '', ucwords($value));
+        return preg_replace('/(.)(?=[A-Z])/u', '$1_', $value);
+    }
+}
+
+if (!function_exists('class_basename')) {
+    /**
+     * Get the class basename of the given object or class name.
+     *
+     * @param string|object $class
+     * @return string
+     */
+    function class_basename($class)
+    {
+        $class = is_object($class) ? get_class($class) : $class;
+        return basename(str_replace('\\', '/', $class));
+    }
+}
+
+if (!function_exists('format_date')) {
+    /**
+     * Format a date using the application's configured date format
+     * 
+     * @param string|int $timestamp Date string or timestamp
+     * @return string Formatted date
+     */
+    function format_date($timestamp) {
+        if (empty($timestamp)) {
+            return '';
+        }
+        
+        $format = config('app.date_format', 'm/d/Y');
+        
+        if (is_numeric($timestamp)) {
+            return date($format, $timestamp);
+        }
+        
+        return date($format, strtotime($timestamp));
+    }
+}
+
+if (!function_exists('format_time')) {
+    /**
+     * Format a time using the application's configured time format
+     * 
+     * @param string|int $timestamp Time string or timestamp
+     * @return string Formatted time
+     */
+    function format_time($timestamp) {
+        if (empty($timestamp)) {
+            return '';
+        }
+        
+        $format = config('app.time_format', 'h:i A');
+        
+        if (is_numeric($timestamp)) {
+            return date($format, $timestamp);
+        }
+        
+        return date($format, strtotime($timestamp));
+    }
+}
+
+if (!function_exists('format_datetime')) {
+    /**
+     * Format a datetime using the application's configured date and time formats
+     * 
+     * @param string|int $timestamp DateTime string or timestamp
+     * @return string Formatted datetime
+     */
+    function format_datetime($timestamp) {
+        if (empty($timestamp)) {
+            return '';
+        }
+        
+        $dateFormat = config('app.date_format', 'm/d/Y');
+        $timeFormat = config('app.time_format', 'h:i A');
+        $format = $dateFormat . ' ' . $timeFormat;
+        
+        if (is_numeric($timestamp)) {
+            return date($format, $timestamp);
+        }
+        
+        return date($format, strtotime($timestamp));
+    }
+}
+
+if (!function_exists('format_date_short')) {
+    /**
+     * Format a date in short format (e.g., Jan 15, 2024)
+     * 
+     * @param string|int $timestamp Date string or timestamp
+     * @return string Formatted date
+     */
+    function format_date_short($timestamp) {
+        if (empty($timestamp)) {
+            return '';
+        }
+        
+        $format = 'M j, Y'; // Short month format
+        
+        if (is_numeric($timestamp)) {
+            return date($format, $timestamp);
+        }
+        
+        return date($format, strtotime($timestamp));
+    }
+}
+
+if (!function_exists('format_date_long')) {
+    /**
+     * Format a date in long format (e.g., January 15, 2024)
+     * 
+     * @param string|int $timestamp Date string or timestamp
+     * @return string Formatted date
+     */
+    function format_date_long($timestamp) {
+        if (empty($timestamp)) {
+            return '';
+        }
+        
+        $format = 'F j, Y'; // Full month format
+        
+        if (is_numeric($timestamp)) {
+            return date($format, $timestamp);
+        }
+        
+        return date($format, strtotime($timestamp));
+     }
+}
+
 if (!function_exists('old')) {
     /**
      * Retrieve an old input value
@@ -344,6 +484,39 @@ if (!function_exists('route')) {
         // This would be implemented with a router
         // For now, we'll just return a basic URL
         return url($name, $parameters);
+    }
+}
+
+if (!function_exists('e')) {
+    /**
+     * Escape HTML special characters in a string.
+     *
+     * @param  string|null  $value
+     * @param  bool  $doubleEncode
+     * @return string
+     */
+    function e($value, $doubleEncode = true)
+    {
+        if ($value === null) {
+            return '';
+        }
+        return htmlspecialchars($value, ENT_QUOTES, 'UTF-8', $doubleEncode);
+    }
+}
+
+if (!function_exists('sanitize_input')) {
+    /**
+     * Sanitize a string input to prevent XSS.
+     *
+     * @param string|null $string The string to sanitize.
+     * @return string The sanitized string.
+     */
+    function sanitize_input(?string $string): string
+    {
+        if ($string === null) {
+            return '';
+        }
+        return htmlspecialchars(trim($string), ENT_QUOTES | ENT_HTML5, 'UTF-8');
     }
 }
 

@@ -70,4 +70,30 @@ class DailyVibe extends Model {
             return [];
         }
     }
+    
+    /**
+     * Get user's current daily vibe streak
+     */
+    public function getStreakCount($userId) {
+        try {
+            $streak = 0;
+            $date = new \DateTime();
+            while (true) {
+                $result = $this->query(
+                    "SELECT * FROM {$this->table} WHERE user_id = :user_id AND date = :date LIMIT 1",
+                    ['user_id' => $userId, 'date' => $date->format('Y-m-d')]
+                );
+                if (!empty($result)) {
+                    $streak++;
+                    $date->modify('-1 day');
+                } else {
+                    break;
+                }
+            }
+            return $streak;
+        } catch (\Exception $e) {
+            error_log('Error calculating streak: ' . $e->getMessage());
+            return 0;
+        }
+    }
 }

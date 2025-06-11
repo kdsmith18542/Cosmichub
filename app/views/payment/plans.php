@@ -17,7 +17,7 @@
                                 <div class="card-body text-center">
                                     <h4 class="card-title pricing-card-title mb-4">
                                         $<?php echo number_format($plan->price, 2); ?>
-                                        <small class="text-muted">/ <?php echo $plan->billing_cycle === 'month' ? 'month' : 'one-time'; ?></small>
+                                        <small class="text-muted">/ <?php echo e($plan->billing_cycle === 'month' ? 'month' : 'one-time'); ?></small>
                                     </h4>
                                     <p class="h2 mb-4"><?php echo number_format($plan->credits); ?> Credits</p>
                                     
@@ -32,9 +32,15 @@
                                         </ul>
                                     <?php endif; ?>
                                     
-                                    <a href="/checkout/<?php echo $plan->id; ?>" class="btn btn-primary btn-lg w-100">
-                                        Choose Plan
-                                    </a>
+                                    <?php if ($plan->billing_cycle === 'month' || $plan->billing_cycle === 'year'): // Assuming these are subscription cycles ?>
+                                        <a href="<?php echo url('/subscription/checkout/' . $plan->id); ?>" class="btn btn-success btn-lg w-100">
+                                            Subscribe
+                                        </a>
+                                    <?php else: // Assuming one-time purchase ?>
+                                        <a href="<?php echo url('/checkout/' . $plan->id); ?>" class="btn btn-primary btn-lg w-100">
+                                            Buy Credits
+                                        </a>
+                                    <?php endif; ?>
                                 </div>
                             </div>
                         </div>

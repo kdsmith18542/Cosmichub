@@ -66,7 +66,7 @@ class AuthController extends Controller {
         }
         
         // Validate input
-        $email = trim($_POST['email'] ?? '');
+        $email = sanitize_input($_POST['email'] ?? '');
         $password = $_POST['password'] ?? '';
         $remember = isset($_POST['remember']);
         $redirect = $_POST['redirect'] ?? '/dashboard';
@@ -91,9 +91,19 @@ class AuthController extends Controller {
             if ($user && $user->verifyPassword($password)) {
                 // Check if email is verified
                 if (!$user->hasVerifiedEmail()) {
-                    $this->setFlash('error', 'Please verify your email address before logging in.');
-                    $this->redirect('/login');
-                    return;
+                    // Resend verification email automatically or guide user
+                    $emailService = new \App\Services\EmailService();
+                    $emailService->sendVerificationEmail($user); // Attempt to resend
+                    
+                    Session::setFlash('warning', 'Your email address is not verified. A new verification link has been sent to your email. Please check your inbox (and spam folder).');
+                    // Store intended URL if any, so user can be redirected after verification
+                    if (Session::has('redirect_url')) {
+                        // Keep it for after verification
+                    } else {
+                        // Potentially set a default redirect after verification, like dashboard
+                        // Session::set('redirect_after_verification', '/dashboard');
+                    }
+                    return redirect('/email/verify/notice');
                 }
                 
                 // Set auth session
@@ -161,20 +171,24 @@ class AuthController extends Controller {
     /**
      * Handle registration form submission
      */
-    public function register() {
-        // Redirect if already logged in
-        $this->requireGuest('/dashboard');
-        
-        // Verify CSRF token
-        if (!csrf_verify('register_form', false)) {
-            $this->setFlash('error', 'Invalid security token. Please try again.');
-            $this->redirect('/register');
-            return;
+    public function processRegister(Request $request)
+    {
+        // Guest only
+        if (Auth::is_logged_in()) {
+            return redirect('/dashboard');
+        }
+
+        // CSRF Check
+        if (!csrf_verify($request)) { // Using the helper function
+            Session::setFlash('error', 'Invalid request. Please try again.');
+            // Store old input to repopulate form
+            Session::setFlash('old_input', $request->all());
+            return redirect('/register');
         }
         
         // Validate input
-        $name = trim($_POST['name'] ?? '');
-        $email = trim($_POST['email'] ?? '');
+        $name = sanitize_input($_POST['name'] ?? '');
+        $email = sanitize_input($_POST['email'] ?? '');
         $password = $_POST['password'] ?? '';
         $confirm_password = $_POST['confirm_password'] ?? '';
         
@@ -278,14 +292,18 @@ class AuthController extends Controller {
             $verificationUrl = url("/email/verify/{$user->id}/{$verificationToken}");
             
             // Send verification email
-            $mailer = new \App\Libraries\MailService();
-            $mailer->sendVerificationEmail($user->email, $user->name, $verificationUrl);
-            
-            // Set success message
-            $this->setFlash('success', 'Registration successful! Please check your email to verify your account.');
-            
-            // Redirect to email verification notice
-            $this->redirect('/email/verify');
+            $emailService = new \App\Services\EmailService();
+            $emailResult = $emailService->sendVerificationEmail($user);
+
+            if ($emailResult['success']) {
+                Session::setFlash('success', 'Registration successful! Please check your email to verify your account. ' . ($emailResult['message'] ?? ''));
+                return redirect('/email/verify/notice');
+            } else {
+                Logger::error('Failed to send verification email for user ID: ' . $user->id . '. Reason: ' . ($emailResult['message'] ?? 'Unknown error'));
+                // Even if email fails, user is created. They can resend from notice page or login attempt.
+                Session::setFlash('warning', 'Registration successful, but we encountered an issue sending your verification email. Please try logging in to resend the verification link or visit the email verification page.');
+                return redirect('/email/verify/notice');
+            }
             
         } catch (Exception $e) {
             // Rollback transaction if it was started

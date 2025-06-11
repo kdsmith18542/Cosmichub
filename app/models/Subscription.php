@@ -22,10 +22,13 @@ class Subscription extends Model {
     protected $fillable = [
         'user_id',
         'plan_id',
+        'stripe_subscription_id', // Added for Stripe integration
+        'stripe_customer_id', // Added for Stripe integration
         'status',
         'starts_at',
         'ends_at',
         'canceled_at',
+        'trial_ends_at', // Added for Stripe trials
         'created_at',
         'updated_at'
     ];
@@ -39,6 +42,7 @@ class Subscription extends Model {
         'starts_at' => 'datetime',
         'ends_at' => 'datetime',
         'canceled_at' => 'datetime',
+        'trial_ends_at' => 'datetime', // Added for Stripe trials
         'created_at' => 'datetime',
         'updated_at' => 'datetime'
     ];
@@ -54,6 +58,7 @@ class Subscription extends Model {
     const STATUS_INCOMPLETE = 'incomplete';
     const STATUS_INCOMPLETE_EXPIRED = 'incomplete_expired';
     const STATUS_TRIALING = 'trialing';
+    const STATUS_DELETED = 'deleted'; // Added for subscriptions fully removed
     
     /**
      * Get the user that owns the subscription

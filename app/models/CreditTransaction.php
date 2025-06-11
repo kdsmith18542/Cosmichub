@@ -50,6 +50,7 @@ class CreditTransaction extends Model {
      */
     const TYPE_CREDIT = 'credit';
     const TYPE_DEBIT = 'debit';
+    const TYPE_CREDIT_PURCHASE = 'credit_purchase'; // For one-time credit pack purchases
     
     /**
      * Reference type constants
@@ -108,7 +109,8 @@ class CreditTransaction extends Model {
     public static function getTypes() {
         return [
             self::TYPE_CREDIT => 'Credit',
-            self::TYPE_DEBIT => 'Debit'
+            self::TYPE_DEBIT => 'Debit',
+            self::TYPE_CREDIT_PURCHASE => 'Credit Purchase'
         ];
     }
     
