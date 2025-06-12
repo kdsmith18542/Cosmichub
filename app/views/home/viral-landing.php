@@ -162,12 +162,24 @@ if (!isset($title)) {
         .form-control, .form-select {
             background-color: rgba(255, 255, 255, 0.1);
             border: 1px solid rgba(255, 255, 255, 0.2);
-            color: #ffffff;
+            color: #ffffff !important;
+        }
+        
+        .form-control:focus, .form-select:focus {
+            background-color: rgba(255, 255, 255, 0.15);
+            border-color: rgba(255, 255, 255, 0.4);
+            color: #ffffff !important;
+            box-shadow: 0 0 0 0.2rem rgba(255, 255, 255, 0.25);
         }
         
         .form-control::placeholder {
             color: rgba(255, 255, 255, 0.5);
             opacity: 1;
+        }
+        
+        .form-select option {
+            background-color: #1e1a3e;
+            color: #ffffff;
         }
 
         .form-select {
