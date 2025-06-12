@@ -518,7 +518,10 @@ spl_autoload_register(function ($class) {
     // Replace the namespace prefix with the base directory, replace namespace
     // separators with directory separators in the relative class name, append
     // with .php
-    $file = $baseDir . strtolower(str_replace('\\', DIRECTORY_SEPARATOR, $relativeClass)) . '.php';
+    $pathParts = explode('\\', $relativeClass);
+    $className = array_pop($pathParts); // Get the class name (keep original case)
+    $directories = implode(DIRECTORY_SEPARATOR, array_map('strtolower', $pathParts)); // Convert directories to lowercase
+    $file = $baseDir . ($directories ? $directories . DIRECTORY_SEPARATOR : '') . $className . '.php';
     
     // Debug the autoloader path resolution
     if (getenv('APP_ENV') === 'development' || getenv('APP_DEBUG') === 'true') {
