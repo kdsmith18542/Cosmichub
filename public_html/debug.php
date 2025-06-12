@@ -38,6 +38,32 @@ if (file_exists($appRoot . '/bootstrap.php')) {
         }
         
         echo "<h3>Database Connection Test</h3>";
+        
+        // Check PDO availability
+        echo "<h3>PDO Check:</h3>";
+        if (class_exists('PDO')) {
+            echo "✓ PDO class is available<br>";
+            $drivers = PDO::getAvailableDrivers();
+            echo "Available PDO drivers: " . implode(', ', $drivers) . "<br>";
+            
+            // Check specifically for SQLite
+            if (in_array('sqlite', $drivers)) {
+                echo "✓ PDO SQLite driver is available<br>";
+            } else {
+                echo "✗ PDO SQLite driver is NOT available<br>";
+                echo "<strong>SOLUTION FOR EC2:</strong><br>";
+                echo "Run: sudo yum install php-pdo (Amazon Linux)<br>";
+                echo "Or: sudo apt-get install php-sqlite3 (Ubuntu)<br>";
+                echo "Then restart web server: sudo systemctl restart httpd/nginx<br>";
+            }
+        } else {
+            echo "✗ PDO class is NOT available<br>";
+            echo "<strong>SOLUTION FOR EC2:</strong><br>";
+            echo "Run: sudo yum install php-pdo (Amazon Linux)<br>";
+            echo "Or: sudo apt-get install php-pdo php-sqlite3 (Ubuntu)<br>";
+            echo "Then restart web server: sudo systemctl restart httpd/nginx<br>";
+        }
+        
         if (isset($pdo) && $pdo instanceof PDO) {
             echo "<p style='color: green;'><strong>Database:</strong> Connected successfully</p>";
         } else {
