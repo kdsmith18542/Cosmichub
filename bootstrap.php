@@ -518,11 +518,23 @@ spl_autoload_register(function ($class) {
     // Replace the namespace prefix with the base directory, replace namespace
     // separators with directory separators in the relative class name, append
     // with .php
-    $file = $baseDir . str_replace('\\', '/', $relativeClass) . '.php';
+    $file = $baseDir . str_replace('\\', DIRECTORY_SEPARATOR, $relativeClass) . '.php';
+    
+    // Debug the autoloader path resolution
+    if (getenv('APP_ENV') === 'development' || getenv('APP_DEBUG') === 'true') {
+        error_log("Autoloader: Trying to load class '$class'");
+        error_log("Autoloader: Base directory: '$baseDir'");
+        error_log("Autoloader: Relative class: '$relativeClass'");
+        error_log("Autoloader: File path: '$file'");
+        error_log("Autoloader: File exists: " . (file_exists($file) ? 'YES' : 'NO'));
+    }
     
     // If the file exists, require it
     if (file_exists($file)) {
         require $file;
+        if (getenv('APP_ENV') === 'development' || getenv('APP_DEBUG') === 'true') {
+            error_log("Autoloader: Successfully loaded '$file'");
+        }
     }
 });
 
