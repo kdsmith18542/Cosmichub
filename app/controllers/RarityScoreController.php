@@ -13,6 +13,8 @@ require_once __DIR__ . '/../models/User.php';
 require_once __DIR__ . '/../models/Referral.php';
 require_once __DIR__ . '/../models/ReferralConversion.php';
 
+namespace App\Controllers;
+
 // External dependencies
 use Carbon\Carbon;
 use Exception;
