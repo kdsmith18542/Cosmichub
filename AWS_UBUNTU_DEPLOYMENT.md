@@ -63,6 +63,21 @@ sudo a2enmod ssl
 sudo a2enmod headers
 ```
 
+### 2.2.1 Install Node.js and npm (Optional - For Development)
+
+```bash
+# Install Node.js 18.x LTS (optional for development workflow)
+curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+sudo apt install -y nodejs
+
+# Verify installation
+node --version
+npm --version
+
+# Note: Node.js/npm are optional as the application uses CDN-hosted
+# frontend libraries in production. Only needed for development workflow.
+```
+
 ### 2.3 Configure Apache
 
 ```bash
@@ -137,6 +152,11 @@ cd /var/www/cosmichub
 
 # Install Composer dependencies
 composer install --no-dev --optimize-autoloader
+
+# Install additional required dependencies
+sudo composer require stripe/stripe-php
+sudo composer require league/oauth2-client
+sudo composer require nesbot/carbon
 
 # Set proper permissions
 sudo chown -R ubuntu:www-data .
