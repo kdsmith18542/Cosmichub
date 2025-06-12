@@ -105,6 +105,9 @@ class AuthController extends Controller {
                     }
                     return redirect('/email/verify/notice');
                 }
+
+                // Regenerate session ID to prevent session fixation
+                session_regenerate_id(true);
                 
                 // Set auth session
                 $this->setAuthSession([
@@ -144,6 +147,9 @@ class AuthController extends Controller {
     public function logout() {
         // Clear auth session
         $this->clearAuthSession();
+
+        // Destroy all data registered to a session
+        session_destroy();
         
         // Set success message
         $this->setFlash('success', 'You have been successfully logged out.');
@@ -319,6 +325,144 @@ class AuthController extends Controller {
             
             // Redirect back to registration form
             $this->redirect('/register');
+        }
+    }
+
+    /**
+     * Show the form for requesting a password reset link.
+     */
+    public function showLinkRequestForm() {
+        $this->requireGuest('/dashboard');
+        $this->view('auth/password/email', ['title' => 'Reset Password']);
+    }
+
+    /**
+     * Handle the request to send a password reset link.
+     */
+    public function sendResetLinkEmail() {
+        $this->requireGuest('/dashboard');
+
+        if (!csrf_verify('password_email_form', false)) {
+            $this->setFlash('error', 'Invalid security token. Please try again.');
+            $this->redirect('/password/reset');
+            return;
+        }
+
+        $email = sanitize_input($_POST['email'] ?? '');
+
+        if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            $this->setFlash('error', 'Please enter a valid email address.');
+            $this->redirect('/password/reset');
+            return;
+        }
+
+        $user = $this->userModel->findByEmail($email);
+
+        if ($user) {
+            $tokenManager = new \App\Utils\TokenManager(new \App\Libraries\Database());
+            $token = $tokenManager->createToken($user->id, 'password_reset');
+            
+            $emailService = new \App\Services\EmailService();
+            if ($emailService->sendPasswordResetEmail($user, $token)) {
+                $this->setFlash('success', 'A password reset link has been sent to your email address.');
+            } else {
+                $this->setFlash('error', 'Unable to send password reset email. Please try again later.');
+            }
+        } else {
+            // To prevent user enumeration, show a generic message even if the email doesn't exist.
+            $this->setFlash('success', 'If an account with that email exists, a password reset link has been sent.');
+        }
+        $this->redirect('/password/reset');
+    }
+
+    /**
+     * Show the password reset form.
+     */
+    public function showResetForm($token) {
+        $this->requireGuest('/dashboard');
+        $tokenManager = new \App\Utils\TokenManager(new \App\Libraries\Database());
+        $tokenData = $tokenManager->validateToken($token, 'password_reset');
+
+        if (!$tokenData) {
+            $this->setFlash('error', 'Invalid or expired password reset token.');
+            $this->redirect('/password/reset');
+            return;
+        }
+
+        $this->view('auth/password/reset', [
+            'title' => 'Reset Your Password',
+            'token' => $token,
+            'email' => $tokenData['email']
+        ]);
+    }
+
+    /**
+     * Handle the actual password reset.
+     */
+    public function resetPassword() {
+        $this->requireGuest('/dashboard');
+
+        if (!csrf_verify('password_reset_form', false)) {
+            $this->setFlash('error', 'Invalid security token. Please try again.');
+            // Ideally, redirect back to the reset form with the token if possible, or to the request form.
+            $this->redirect('/password/reset'); 
+            return;
+        }
+
+        $token = sanitize_input($_POST['token'] ?? '');
+        $email = sanitize_input($_POST['email'] ?? '');
+        $password = $_POST['password'] ?? '';
+        $confirm_password = $_POST['confirm_password'] ?? '';
+
+        $errors = [];
+        if (empty($token)) {
+            $errors[] = 'Reset token is missing.';
+        }
+        if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            $errors[] = 'A valid email is required.';
+        }
+        if (empty($password)) {
+            $errors[] = 'Password is required';
+        } elseif (strlen($password) < 8) {
+            $errors[] = 'Password must be at least 8 characters long';
+        } elseif (!preg_match('/[A-Z]/', $password) || !preg_match('/[a-z]/', $password) || !preg_match('/[0-9]/', $password)) {
+            $errors[] = 'Password must contain at least one uppercase letter, one lowercase letter, and one number';
+        }
+        if ($password !== $confirm_password) {
+            $errors[] = 'Passwords do not match';
+        }
+
+        if (!empty($errors)) {
+            $this->setFlash('error', implode('<br>', $errors));
+            // Redirect back to the reset form, ensuring the token and email are passed back if possible
+            $this->redirect('/password/reset/' . urlencode($token) . '?email=' . urlencode($email));
+            return;
+        }
+
+        $tokenManager = new \App\Utils\TokenManager(new \App\Libraries\Database());
+        $tokenData = $tokenManager->validateToken($token, 'password_reset');
+
+        if (!$tokenData || $tokenData['email'] !== $email) {
+            $this->setFlash('error', 'Invalid or expired password reset token, or email mismatch.');
+            $this->redirect('/password/reset');
+            return;
+        }
+
+        $user = $this->userModel->findByEmail($email);
+        if (!$user) {
+            $this->setFlash('error', 'User not found.'); // Should not happen if token is valid
+            $this->redirect('/password/reset');
+            return;
+        }
+
+        $user->password = password_hash($password, PASSWORD_BCRYPT, ['cost' => 12]);
+        if ($user->save()) {
+            $tokenManager->markTokenUsed($token);
+            $this->setFlash('success', 'Your password has been successfully reset. You can now log in.');
+            $this->redirect('/login');
+        } else {
+            $this->setFlash('error', 'Failed to reset password. Please try again.');
+            $this->redirect('/password/reset/' . urlencode($token) . '?email=' . urlencode($email));
         }
     }
 }

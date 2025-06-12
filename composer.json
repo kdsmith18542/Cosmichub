@@ -4,9 +4,13 @@
     "type": "project",
     "require": {
         "php": ">=7.4",
-        "ext-pdo": "*",
         "ext-json": "*",
         "ext-mbstring": "*",
+        "ext-pdo": "*",
+        "google-gemini-php/client": "^2.3",
+        "nyholm/psr7": "^1.8",
+        "psr/http-client": "^1.0",
+        "symfony/http-client": "^7.3",
         "tecnickcom/tcpdf": "^6.6"
     },
     "autoload": {
@@ -17,7 +21,10 @@
     "config": {
         "optimize-autoloader": true,
         "preferred-install": "dist",
-        "sort-packages": true
+        "sort-packages": true,
+        "allow-plugins": {
+            "php-http/discovery": true
+        }
     },
     "minimum-stability": "dev",
     "prefer-stable": true

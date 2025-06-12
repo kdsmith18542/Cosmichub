@@ -64,7 +64,11 @@ class DashboardController extends \App\Libraries\Controller {
             );
             
             // Get recent reports with basic details (last 3)
-            $recentReports = [];
+            $reportModel = new ReportModel();
+            $recentReports = $reportModel->query(
+                "SELECT id, title, created_at, is_unlocked FROM reports WHERE user_id = :user_id ORDER BY created_at DESC LIMIT 3",
+                ['user_id' => $user->id]
+            );
             
             // Calculate rarity score if user has birthdate
             $rarityScore = null;
@@ -83,6 +87,12 @@ class DashboardController extends \App\Libraries\Controller {
             }
             
             // Prepare view data
+            $stats = [
+                'total_reports_created' => $this->getTotalReportsCreated($user->id),
+                'total_credits_earned' => $this->getTotalCreditsEarned($user->id), // Assuming you'll implement this method
+                'reports_this_month' => $this->getReportsThisMonth($user->id)
+            ];
+
             $data = [
                 'pageTitle' => 'Dashboard',
                 'user' => $user,
@@ -90,7 +100,8 @@ class DashboardController extends \App\Libraries\Controller {
                 'recentReports' => $recentReports,
                 'rarityScore' => $rarityScore,
                 'rarityDescription' => $rarityDescription,
-                'rarityColor' => $rarityColor
+                'rarityColor' => $rarityColor,
+                'stats' => $stats
             ];
             
             // Load the dashboard view
@@ -173,6 +184,20 @@ class DashboardController extends \App\Libraries\Controller {
      * @param int $userId
      * @return int
      */
+    protected function getTotalCreditsEarned($userId) {
+        try {
+            $transaction = new CreditTransactionModel();
+            $result = $transaction->query(
+                "SELECT SUM(amount) as total FROM credit_transactions WHERE user_id = :user_id AND type = :type",
+                ['user_id' => $userId, 'type' => CreditTransactionModel::TYPE_CREDIT] // Assuming 'credit' means earned
+            );
+            return !empty($result) ? (int)$result[0]->total : 0;
+        } catch (Exception $e) {
+            error_log('Error getting total credits earned: ' . $e->getMessage());
+            return 0;
+        }
+    }
+
     protected function getTotalCreditsUsed($userId) {
         try {
             $transaction = new CreditTransactionModel();

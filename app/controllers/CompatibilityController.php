@@ -28,10 +28,45 @@ class CompatibilityController extends \App\Libraries\Controller {
         if ($user && method_exists($user, 'hasActiveSubscription')) {
             $hasActiveSubscription = $user->hasActiveSubscription();
         }
-        // TODO: Fetch referral progress and referral URL as before
+        
+        // Generate premium compatibility content for subscribers
+        $premiumCompatibilityContent = null;
+        if ($hasActiveSubscription) {
+            try {
+                $geminiService = new \App\Services\GeminiService();
+                $premiumCompatibilityContent = $geminiService->generateArchetypeInsights("Generate detailed compatibility insights for cosmic connections. Focus on relationship dynamics, spiritual compatibility, and karmic connections. Provide comprehensive analysis for premium subscribers. Format as engaging, insightful content.");
+            } catch (Exception $e) {
+                error_log('Error generating premium compatibility content: ' . $e->getMessage());
+                $premiumCompatibilityContent = null;
+            }
+        }
+        // Fetch referral progress and referral URL
+        $referralData = null;
+        if ($user) {
+            try {
+                // Get or create referral for compatibility type
+                $referral = \App\Models\Referral::getOrCreateForUser($user->id, \App\Models\Referral::TYPE_COMPATIBILITY);
+                
+                if ($referral) {
+                    $referralData = [
+                        'code' => $referral->referral_code,
+                        'url' => $referral->getReferralUrl(),
+                        'successful_referrals' => $referral->successful_referrals,
+                        'required_referrals' => 3, // Required for unlocking premium features
+                        'progress_percentage' => min(100, ($referral->successful_referrals / 3) * 100),
+                        'has_enough_referrals' => $referral->hasEnoughReferrals(3)
+                    ];
+                }
+            } catch (Exception $e) {
+                error_log('Error fetching referral data: ' . $e->getMessage());
+            }
+        }
+        
         $this->view('compatibility/index', [
             'title' => 'Cosmic Connection - Compatibility Report',
             'hasActiveSubscription' => $hasActiveSubscription,
+            'premiumCompatibilityContent' => $premiumCompatibilityContent,
+            'referralData' => $referralData,
         ]);
     }
     

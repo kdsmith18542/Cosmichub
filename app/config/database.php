@@ -6,8 +6,9 @@
 // Ensure database directory exists
 $dbDir = __DIR__ . '/../../database';
 if (!is_dir($dbDir)) {
-    if (!mkdir($dbDir, 0755, true)) {
-        die('Failed to create database directory');
+    if (!mkdir($dbDir, 0750, true)) {
+        error_log('Failed to create database directory: ' . $dbDir);
+        die('Database configuration error. Please contact support.');
     }
 }
 
@@ -17,9 +18,11 @@ $databaseFile = $dbDir . '/database.sqlite';
 // Create database file if it doesn't exist
 if (!file_exists($databaseFile)) {
     if (!touch($databaseFile)) {
-        die('Failed to create database file');
+        error_log('Failed to create database file: ' . $databaseFile);
+        die('Database configuration error. Please contact support.');
     }
-    chmod($databaseFile, 0666);
+    // Set secure permissions for shared hosting
+    chmod($databaseFile, 0640);
 }
 
 // Set SQLite PRAGMAs for proper character handling

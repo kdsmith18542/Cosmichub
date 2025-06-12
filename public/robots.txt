@@ -1,0 +1,29 @@
+User-agent: *
+Allow: /
+Allow: /celebrity-reports/
+Allow: /cosmic/
+Allow: /shareables/
+Allow: /compatibility
+Allow: /archetypes/
+Allow: /daily-vibe/
+
+# Disallow admin and private areas
+Disallow: /admin/
+Disallow: /analytics/
+Disallow: /feedback/admin
+Disallow: /api/
+Disallow: /login
+Disallow: /register
+Disallow: /profile
+Disallow: /dashboard
+Disallow: /credits/
+Disallow: /payment/
+Disallow: /gift/
+
+# Allow important SEO pages
+Allow: /celebrity-reports/*
+Allow: /cosmic/*
+Allow: /shareables/view/*
+
+# Sitemap location
+Sitemap: https://cosmichub.online/sitemap.xml

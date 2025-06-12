@@ -55,6 +55,51 @@ class OpenAIService
     }
 
     /**
+     * Generate AI-powered insights for a given Archetype.
+     *
+     * @param \App\Models\Archetype \$archetype The archetype object.
+     * @return array Generated AI content for the archetype.
+     */
+    public function generateArchetypeInsights(\App\Models\Archetype \$archetype)
+    {
+        \$archetypeName = \$archetype->name;
+        \$archetypeDescription = \$archetype->description;
+
+        \$prompt = "Given the archetype '{\$archetypeName}' described as '{\$archetypeDescription}', provide a concise and insightful analysis. Include:
+        1. Core Essence: A 1-2 sentence summary of what this archetype fundamentally represents.
+        2. Key Strengths: 2-3 primary strengths or positive attributes associated with this archetype.
+        3. Potential Challenges: 1-2 common challenges or shadow aspects this archetype might face.
+        4. Symbolic Representation: A brief (1 sentence) symbolic image or metaphor for this archetype.
+        Make the tone empowering and philosophical. Format the output as a JSON object with keys: 'core_essence', 'key_strengths' (array of strings), 'potential_challenges' (array of strings), and 'symbolic_representation'.";
+
+        \$rawResponse = \$this->makeOpenAIRequest(\$prompt, 300); // Increased maxTokens for potentially richer content
+
+        // Attempt to parse the JSON response from AI
+        \$parsedResponse = json_decode(\$rawResponse, true);
+
+        if (json_last_error() === JSON_ERROR_NONE && is_array(\$parsedResponse)) {
+            // Validate that expected keys are present, otherwise return a default structure or the raw text
+            return [
+                'core_essence' => \$parsedResponse['core_essence'] ?? 'Insight generation in progress.',
+                'key_strengths' => \$parsedResponse['key_strengths'] ?? [],
+                'potential_challenges' => \$parsedResponse['potential_challenges'] ?? [],
+                'symbolic_representation' => \$parsedResponse['symbolic_representation'] ?? '',
+                'raw_text' => empty(\$parsedResponse) ? \$rawResponse : '' // Include raw if parsing failed or was incomplete
+            ];
+        } else {
+            // If AI did not return valid JSON, return the raw text under a generic key or handle error
+            // This allows for manual review or a simpler display if structured parsing fails.
+            return [
+                'core_essence' => 'Detailed insights for this archetype are being generated. Please check back soon.',
+                'key_strengths' => [],
+                'potential_challenges' => [],
+                'symbolic_representation' => '',
+                'raw_text' => \$rawResponse // Store the raw response for debugging or fallback display
+            ];
+        }
+    }
+
+    /**
      * Generate Soul's Archetype using AI
      */
     private function generateSoulsArchetype($zodiacSign, $chineseZodiac, $birthDate)
@@ -163,7 +208,17 @@ class OpenAIService
             throw new \Exception('OpenAI API Error: ' . $responseData['error']['message']);
         }
         
-        return trim($responseData['choices'][0]['message']['content']);
+        // Check if choices exist and have content
+        if (isset(\$responseData['choices'][0]['message']['content'])) {
+            return trim(\$responseData['choices'][0]['message']['content']);
+        } else {
+            // Log the problematic response for debugging
+            error_log('OpenAI API response did not contain expected content structure: ' . json_encode(\$responseData));
+            // Throw an exception or return an error message/empty string
+            throw new \Exception('OpenAI API Error: Invalid response structure. Choices or content missing.');
+            // Alternatively, return a default or empty string if preferred over an exception:
+            // return ''; 
+        }
     }
 
     /**
@@ -252,5 +307,28 @@ class OpenAIService
         $prompt = "Create a fun, insightful compatibility report between {$sign1} (born {$birthDate1}) and {$sign2} (born {$birthDate2}). Include their strengths as a pair, potential challenges, and advice for harmony. Write 4-5 sentences that are both accurate and encouraging.";
         
         return $this->makeOpenAIRequest($prompt, 300);
+    }
+    
+    /**
+     * Generate premium compatibility insights
+     */
+    public function generateCompatibilityInsights($data)
+    {
+        $prompt = "Generate detailed compatibility insights for premium users. Include information about relationship dynamics, communication styles, emotional compatibility, and long-term potential. Provide actionable advice for building stronger connections. Write 3-4 paragraphs with deep, personalized insights.";
+        
+        return $this->makeOpenAIRequest($prompt, 400);
+    }
+    
+    /**
+     * Generate premium archetype insights
+     */
+    public function generateArchetypeInsights($data)
+    {
+        $archetypeName = $data['archetype_name'] ?? 'Unknown';
+        $archetypeDescription = $data['archetype_description'] ?? '';
+        
+        $prompt = "Generate deep, premium insights for the {$archetypeName} archetype. Based on this description: {$archetypeDescription}. Include detailed analysis of personality traits, life purpose, shadow aspects, growth opportunities, career paths, relationship patterns, and spiritual development. Provide actionable guidance for personal transformation. Write 4-5 comprehensive paragraphs with profound insights.";
+        
+        return $this->makeOpenAIRequest($prompt, 500);
     }
 }

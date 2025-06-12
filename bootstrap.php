@@ -8,12 +8,20 @@
 // Start output buffering at the very beginning
 ob_start();
 
-// Enable error reporting with maximum verbosity
-error_reporting(-1);
-ini_set('display_errors', '1');
-ini_set('display_startup_errors', '1');
+// Set error reporting based on environment
+if (getenv('APP_ENV') === 'development' || getenv('APP_DEBUG') === 'true') {
+    // Development: Show all errors
+    error_reporting(-1);
+    ini_set('display_errors', '1');
+    ini_set('display_startup_errors', '1');
+} else {
+    // Production: Log errors but don't display them
+    error_reporting(E_ALL & ~E_NOTICE & ~E_STRICT & ~E_DEPRECATED);
+    ini_set('display_errors', '0');
+    ini_set('display_startup_errors', '0');
+}
 ini_set('log_errors', '1');
-ini_set('html_errors', '1');
+ini_set('html_errors', '0');
 
 // Define application paths before any output
 // Use __DIR__ to get the current script's directory (most reliable method)
@@ -24,8 +32,7 @@ $possibleRoots = [
     $scriptDir,                                  // Current script directory
     dirname($scriptDir),                        // One level up
     dirname(dirname($scriptDir)),               // Two levels up
-    dirname(dirname(dirname($scriptDir))),      // Three levels up
-    'C:\\Users\\Keith\\vscodeclone\\CosmicHub.Online-1'  // Absolute path as last resort
+    dirname(dirname(dirname($scriptDir)))       // Three levels up
 ];
 
 // Find the first valid root directory that contains app/ and public/
@@ -62,25 +69,7 @@ if (!defined('VIEWS_DIR')) {
 $storageDir = "$rootDir/storage";
 $logsDir = "$storageDir/logs";
 
-// Debug information
-error_log("\n=== Bootstrap Path Resolution ===");
-error_log("Script Directory: $scriptDir");
-error_log("Root Directory: $rootDir");
-error_log("App Directory: $appDir");
-error_log("Config Directory: $configDir");
 
-// Debug information
-error_log("\n=== Bootstrap Path Resolution ===");
-error_log("Script Directory: $scriptDir");
-error_log("Root Directory: $rootDir");
-error_log("App Directory: $appDir");
-error_log("Config Directory: $configDir");
-// Debug information
-error_log("\n=== Bootstrap Path Resolution ===");
-error_log("Script Directory: $scriptDir");
-error_log("Root Directory: $rootDir");
-error_log("App Directory: $appDir");
-error_log("Config Directory: $configDir");
 
 // Verify the directories exist with better error messages
 $requiredDirs = [
@@ -95,7 +84,9 @@ $missingDirs = [];
 foreach ($requiredDirs as $name => $dir) {
     if (!is_dir($dir)) {
         $missingDirs[$name] = $dir;
-        error_log("Warning: Required directory '$name' does not exist: $dir");
+        if (getenv('APP_ENV') === 'development' || getenv('APP_DEBUG') === 'true') {
+            error_log("Warning: Required directory '$name' does not exist: $dir");
+        }
     }
 }
 
@@ -119,9 +110,13 @@ $writableDirs = [
 foreach ($writableDirs as $name => $dir) {
     if (!is_dir($dir)) {
         if (!mkdir($dir, 0755, true)) {
-            error_log("Warning: Could not create $name directory: $dir");
+            if (getenv('APP_ENV') === 'development' || getenv('APP_DEBUG') === 'true') {
+                error_log("Warning: Could not create $name directory: $dir");
+            }
         } else {
-            error_log("Created $name directory: $dir");
+            if (getenv('APP_ENV') === 'development' || getenv('APP_DEBUG') === 'true') {
+                error_log("Created $name directory: $dir");
+            }
         }
     }
 }
@@ -137,13 +132,17 @@ $expectedDirs = [
 // Check each expected directory and try to find alternatives if missing
 foreach ($expectedDirs as $name => $path) {
     if (!is_dir($path)) {
-        error_log("Warning: Expected directory '$name' not found at: $path");
+        if (getenv('APP_ENV') === 'development' || getenv('APP_DEBUG') === 'true') {
+            error_log("Warning: Expected directory '$name' not found at: $path");
+        }
         
         // Try alternative locations for public directory
         if ($name === 'public') {
             $altPath = dirname($rootDir) . '/public';
             if (is_dir($altPath)) {
-                error_log("Found alternative public directory at: $altPath");
+                if (getenv('APP_ENV') === 'development' || getenv('APP_DEBUG') === 'true') {
+                    error_log("Found alternative public directory at: $altPath");
+                }
                 $rootDir = dirname($rootDir);
                 $appDir = "$rootDir/app";
                 $configDir = "$appDir/config";
@@ -154,7 +153,9 @@ foreach ($expectedDirs as $name => $path) {
                 define('CONFIG_DIR', $configDir);
                 define('STORAGE_DIR', $storageDir);
                 define('LOGS_DIR', $logsDir);
-                error_log("Updated paths to use root directory: $rootDir");
+                if (getenv('APP_ENV') === 'development' || getenv('APP_DEBUG') === 'true') {
+                    error_log("Updated paths to use root directory: $rootDir");
+                }
                 break;
             }
         }
@@ -187,14 +188,16 @@ if (!is_dir($appDir) || !is_dir($configDir)) {
     ));
 }
 
-// Log initial paths
-error_log("\n=== Bootstrap Path Resolution ===");
-error_log("Root Directory: $rootDir");
-error_log("App Directory: $appDir");
-error_log("Config Directory: $configDir");
-error_log("Views Directory: $viewsDir");
-error_log("Storage Directory: $storageDir");
-error_log("Logs Directory: $logsDir");
+// Log initial paths (development only)
+if (getenv('APP_ENV') === 'development' || getenv('APP_DEBUG') === 'true') {
+    error_log("\n=== Bootstrap Path Resolution ===");
+    error_log("Root Directory: $rootDir");
+    error_log("App Directory: $appDir");
+    error_log("Config Directory: $configDir");
+    error_log("Views Directory: $viewsDir");
+    error_log("Storage Directory: $storageDir");
+    error_log("Logs Directory: $logsDir");
+}
 
 // Ensure all directories exist and are writable
 $requiredDirs = [
@@ -212,12 +215,16 @@ foreach ($requiredDirs as $name => $dir) {
         if (!mkdir($dir, 0755, true)) {
             die("Failed to create directory: $dir");
         }
-        error_log("Created directory: $dir");
+        if (getenv('APP_ENV') === 'development' || getenv('APP_DEBUG') === 'true') {
+            error_log("Created directory: $dir");
+        }
     }
     
     if (!is_writable($dir)) {
         if (!chmod($dir, 0755)) {
-            error_log("Warning: Directory is not writable: $dir");
+            if (getenv('APP_ENV') === 'development' || getenv('APP_DEBUG') === 'true') {
+                error_log("Warning: Directory is not writable: $dir");
+            }
         }
     }
 }
@@ -242,15 +249,17 @@ if (!defined('LOGS_DIR')) {
     define('LOGS_DIR', $logsDir);
 }
 
-// Debug path information
-error_log('Current working directory: ' . getcwd());
-error_log('Script directory: ' . __DIR__);
-error_log('ROOT_DIR: ' . ROOT_DIR);
-error_log('APP_DIR: ' . APP_DIR);
-error_log('CONFIG_DIR: ' . CONFIG_DIR);
-error_log('VIEWS_DIR: ' . VIEWS_DIR);
-error_log('STORAGE_DIR: ' . STORAGE_DIR);
-error_log('LOGS_DIR: ' . LOGS_DIR);
+// Debug path information (development only)
+if (getenv('APP_ENV') === 'development' || getenv('APP_DEBUG') === 'true') {
+    error_log('Current working directory: ' . getcwd());
+    error_log('Script directory: ' . __DIR__);
+    error_log('ROOT_DIR: ' . ROOT_DIR);
+    error_log('APP_DIR: ' . APP_DIR);
+    error_log('CONFIG_DIR: ' . CONFIG_DIR);
+    error_log('VIEWS_DIR: ' . VIEWS_DIR);
+    error_log('STORAGE_DIR: ' . STORAGE_DIR);
+    error_log('LOGS_DIR: ' . LOGS_DIR);
+}
 
 // Define possible config file paths to check (in order of preference)
 $possibleConfigPaths = [
@@ -271,9 +280,11 @@ $possibleConfigPaths = [
 // Make paths unique and preserve order
 $possibleConfigPaths = array_unique($possibleConfigPaths);
 
-// Log config file check
-error_log("\n=== Config File Check ===");
-error_log("Looking for config file in the following locations:");
+// Log config file check (development only)
+if (getenv('APP_ENV') === 'development' || getenv('APP_DEBUG') === 'true') {
+    error_log("\n=== Config File Check ===");
+    error_log("Looking for config file in the following locations:");
+}
 
 $configFile = null;
 $checkedPaths = [];
@@ -287,16 +298,20 @@ foreach ($possibleConfigPaths as $path) {
     $exists = file_exists($normalizedPath);
     $readable = is_readable($normalizedPath);
     
-    error_log(sprintf(
-        "- %s: %s, %s",
-        $normalizedPath,
-        $exists ? 'Exists' : 'Not found',
-        $readable ? 'Readable' : 'Not readable'
-    ));
+    if (getenv('APP_ENV') === 'development' || getenv('APP_DEBUG') === 'true') {
+        error_log(sprintf(
+            "- %s: %s, %s",
+            $normalizedPath,
+            $exists ? 'Exists' : 'Not found',
+            $readable ? 'Readable' : 'Not readable'
+        ));
+    }
     
     if ($exists && $readable) {
         $configFile = $normalizedPath;
-        error_log("\nUsing config file: $configFile");
+        if (getenv('APP_ENV') === 'development' || getenv('APP_DEBUG') === 'true') {
+            error_log("\nUsing config file: $configFile");
+        }
         break;
     }
 }
@@ -323,7 +338,9 @@ if (!$configFile) {
              "DOCUMENT_ROOT: " . ($_SERVER['DOCUMENT_ROOT'] ?? 'Not set') . "\n\n" .
              "Directory listings:\n- " . implode("\n- ", $dirListings);
     
-    error_log($error);
+    if (getenv('APP_ENV') === 'development' || getenv('APP_DEBUG') === 'true') {
+        error_log($error);
+    }
     die(nl2br(htmlspecialchars($error, ENT_QUOTES, 'UTF-8')));
 }
 
@@ -340,7 +357,9 @@ try {
     die(nl2br(htmlspecialchars($error, ENT_QUOTES, 'UTF-8')));
 }
 
-error_log("Successfully loaded config from: $configFile");
+if (getenv('APP_ENV') === 'development' || getenv('APP_DEBUG') === 'true') {
+    error_log("Successfully loaded config from: $configFile");
+}
 
 // Load the configuration file
 try {
@@ -384,7 +403,9 @@ try {
         define('APP_DEBUG', $config['app']['debug'] ?? false);
     }
     
-    error_log('Config loaded successfully from: ' . $configFile);
+    if (getenv('APP_ENV') === 'development' || getenv('APP_DEBUG') === 'true') {
+        error_log('Config loaded successfully from: ' . $configFile);
+    }
 } catch (Exception $e) {
     $error = '\nERROR: Failed to load config file: ' . $e->getMessage() . "\n";
     $error .= 'File: ' . $e->getFile() . ' on line ' . $e->getLine() . "\n";
@@ -405,20 +426,16 @@ if (!is_dir(LOGS_DIR)) {
 $logFile = LOGS_DIR . DIRECTORY_SEPARATOR . 'php_errors.log';
 ini_set('error_log', $logFile);
 
-// Log PHP configuration
-error_log('PHP Version: ' . phpversion());
-error_log('PHP error_log: ' . ini_get('error_log'));
-error_log('display_errors: ' . ini_get('display_errors'));
-error_log('log_errors: ' . ini_get('log_errors'));
-
-// Log current working directory
-error_log('Current working directory: ' . getcwd());
-
-// Log include path
-error_log('Include path: ' . get_include_path());
-
-// Log script start
-error_log("\n=== Bootstrap started at " . date('Y-m-d H:i:s') . " ===\n");
+// Log PHP configuration (development only)
+if (getenv('APP_ENV') === 'development' || getenv('APP_DEBUG') === 'true') {
+    error_log('PHP Version: ' . phpversion());
+    error_log('PHP error_log: ' . ini_get('error_log'));
+    error_log('display_errors: ' . ini_get('display_errors'));
+    error_log('log_errors: ' . ini_get('log_errors'));
+    error_log('Current working directory: ' . getcwd());
+    error_log('Include path: ' . get_include_path());
+    error_log("\n=== Bootstrap started at " . date('Y-m-d H:i:s') . " ===\n");
+}
 
 // Function to log debug info
 function log_debug($message) {
@@ -430,8 +447,10 @@ function log_debug($message) {
 // Set the default timezone
 date_default_timezone_set('UTC');
 
-// Log startup
-file_put_contents($logFile, "[" . date('Y-m-d H:i:s') . "] Application started\n", FILE_APPEND);
+// Log startup (development only)
+if (getenv('APP_ENV') === 'development' || getenv('APP_DEBUG') === 'true') {
+    file_put_contents($logFile, "[" . date('Y-m-d H:i:s') . "] Application started\n", FILE_APPEND);
+}
 
 // Set up error handler
 set_error_handler(function($errno, $errstr, $errfile, $errline) use ($logFile) {
@@ -472,6 +491,11 @@ set_exception_handler(function($exception) use ($logFile) {
     }
 });
 
+// Load Composer autoloader for external packages
+if (file_exists($rootDir . '/vendor/autoload.php')) {
+    require_once $rootDir . '/vendor/autoload.php';
+}
+
 // Set up autoloading
 spl_autoload_register(function ($class) {
     // Project-specific namespace prefix
@@ -504,17 +528,19 @@ spl_autoload_register(function ($class) {
 // Load configuration
 $configPath = CONFIG_DIR . DIRECTORY_SEPARATOR . 'config.php';
 
-// Debug information
-error_log('\n=== Configuration Loading Debug ===');
-error_log('Current working directory: ' . getcwd());
-error_log('__DIR__: ' . __DIR__);
-error_log('__FILE__: ' . __FILE__);
-error_log('CONFIG_DIR: ' . CONFIG_DIR);
-error_log('Config path: ' . $configPath);
-error_log('Real path: ' . (($realPath = realpath($configPath)) ? $realPath : 'Not found'));
-error_log('File exists: ' . (file_exists($configPath) ? 'Yes' : 'No'));
-error_log('Is readable: ' . (is_readable($configPath) ? 'Yes' : 'No'));
-error_log('Include path: ' . get_include_path());
+// Debug information (development only)
+if (getenv('APP_ENV') === 'development' || getenv('APP_DEBUG') === 'true') {
+    error_log('\n=== Configuration Loading Debug ===');
+    error_log('Current working directory: ' . getcwd());
+    error_log('__DIR__: ' . __DIR__);
+    error_log('__FILE__: ' . __FILE__);
+    error_log('CONFIG_DIR: ' . CONFIG_DIR);
+    error_log('Config path: ' . $configPath);
+    error_log('Real path: ' . (($realPath = realpath($configPath)) ? $realPath : 'Not found'));
+    error_log('File exists: ' . (file_exists($configPath) ? 'Yes' : 'No'));
+    error_log('Is readable: ' . (is_readable($configPath) ? 'Yes' : 'No'));
+    error_log('Include path: ' . get_include_path());
+}
 
 // Check if the file exists using alternative methods
 $alternativePaths = [
@@ -524,23 +550,29 @@ $alternativePaths = [
     realpath(__DIR__ . '/../../app/config/config.php')
 ];
 
-error_log('\n=== Checking alternative paths ===');
+if (getenv('APP_ENV') === 'development' || getenv('APP_DEBUG') === 'true') {
+    error_log('\n=== Checking alternative paths ===');
+}
 foreach ($alternativePaths as $i => $path) {
     $exists = file_exists($path);
     $readable = is_readable($path);
     $real = realpath($path);
-    error_log(sprintf(
-        "Path %d: %s\n   Exists: %s\n   Readable: %s\n   Real path: %s",
-        $i + 1,
-        $path,
-        $exists ? 'Yes' : 'No',
-        $readable ? 'Yes' : 'No',
-        $real ?: 'Not found'
-    ));
+    if (getenv('APP_ENV') === 'development' || getenv('APP_DEBUG') === 'true') {
+        error_log(sprintf(
+            "Path %d: %s\n   Exists: %s\n   Readable: %s\n   Real path: %s",
+            $i + 1,
+            $path,
+            $exists ? 'Yes' : 'No',
+            $readable ? 'Yes' : 'No',
+            $real ?: 'Not found'
+        ));
+    }
     
     if ($exists && $readable) {
         $configPath = $real ?: $path;
-        error_log("Using config file: $configPath");
+        if (getenv('APP_ENV') === 'development' || getenv('APP_DEBUG') === 'true') {
+            error_log("Using config file: $configPath");
+        }
         break;
     }
 }
@@ -553,12 +585,16 @@ if (!file_exists($configPath) || !is_readable($configPath)) {
 }
 
 if (!file_exists($configPath)) {
-    error_log('Config file does not exist at: ' . $configPath);
+    if (getenv('APP_ENV') === 'development' || getenv('APP_DEBUG') === 'true') {
+        error_log('Config file does not exist at: ' . $configPath);
+    }
     die('Configuration file not found at: ' . $configPath);
 }
 
 if (!is_readable($configPath)) {
-    error_log('Config file is not readable: ' . $configPath);
+    if (getenv('APP_ENV') === 'development' || getenv('APP_DEBUG') === 'true') {
+        error_log('Config file is not readable: ' . $configPath);
+    }
     die('Configuration file is not readable: ' . $configPath);
 }
 
@@ -571,7 +607,9 @@ try {
     }
     
     $GLOBALS['config'] = $config;
-    error_log('Configuration loaded successfully');
+    if (getenv('APP_ENV') === 'development' || getenv('APP_DEBUG') === 'true') {
+        error_log('Configuration loaded successfully');
+    }
     
     // Set error reporting based on environment
     $isDev = ($config['app']['env'] ?? 'production') === 'development';
@@ -611,9 +649,13 @@ try {
                 App\Core\Container::getInstance()->set('db', $db);
             }
             
-            error_log('Database connection established successfully');
+            if (getenv('APP_ENV') === 'development' || getenv('APP_DEBUG') === 'true') {
+                error_log('Database connection established successfully');
+            }
         } catch (PDOException $e) {
-            error_log('Database connection failed: ' . $e->getMessage());
+            if (getenv('APP_ENV') === 'development' || getenv('APP_DEBUG') === 'true') {
+                error_log('Database connection failed: ' . $e->getMessage());
+            }
             if ($isDev) {
                 die('Database connection failed: ' . $e->getMessage());
             } else {
@@ -660,7 +702,9 @@ try {
     $errorMsg = 'Error loading configuration: ' . $e->getMessage() . 
                 ' in ' . $e->getFile() . ' on line ' . $e->getLine() . 
                 '\nStack trace:\n' . $e->getTraceAsString();
-    error_log($errorMsg);
+    if (getenv('APP_ENV') === 'development' || getenv('APP_DEBUG') === 'true') {
+        error_log($errorMsg);
+    }
     die('Failed to load configuration: ' . htmlspecialchars($e->getMessage()));
 }
 

@@ -74,7 +74,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const datePickers = document.querySelectorAll('.date-picker');
     if (datePickers.length > 0) {
         // If you want to add a date picker library, you can initialize it here
-        console.log('Date pickers found, but no date picker library is loaded');
+        // Date picker library not loaded
     }
 
     // Add smooth scrolling to all links

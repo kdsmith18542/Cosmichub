@@ -1,5 +1,43 @@
 <?php $this->extend('layouts/main'); ?>
 
+<!-- SEO Meta Tags -->
+<meta name="description" content="Get your personalized daily cosmic vibe and astrological insights. Discover what the stars have in store for you today with our daily cosmic guidance and spiritual wisdom.">
+<meta name="keywords" content="daily horoscope, cosmic vibe, daily astrology, spiritual guidance, daily insights, cosmic wisdom, astrology today, daily cosmic reading">
+<meta property="og:title" content="Daily Cosmic Vibe - Your Personal Astrological Guidance | CosmicHub">
+<meta property="og:description" content="Receive your personalized daily cosmic vibe and astrological insights. Start each day with cosmic wisdom and spiritual guidance.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="<?= $_SERVER['REQUEST_SCHEME'] ?>://<?= $_SERVER['HTTP_HOST'] ?>/daily-vibe">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Daily Cosmic Vibe - Personal Astrology">
+<meta name="twitter:description" content="Get your personalized daily cosmic vibe and astrological insights from the stars.">
+
+<!-- Structured Data -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebPage",
+  "name": "Daily Cosmic Vibe",
+  "description": "Personalized daily cosmic insights and astrological guidance",
+  "url": "<?= $_SERVER['REQUEST_SCHEME'] ?>://<?= $_SERVER['HTTP_HOST'] ?>/daily-vibe",
+  "mainEntity": {
+    "@type": "Service",
+    "name": "Daily Cosmic Vibe",
+    "description": "Personalized daily astrological insights and cosmic guidance",
+    "provider": {
+      "@type": "Organization",
+      "name": "CosmicHub"
+    },
+    "serviceType": "Astrological Reading",
+    "audience": {
+      "@type": "Audience",
+      "audienceType": "People interested in astrology and spiritual guidance"
+    }
+  },
+  "datePublished": "<?= date('c') ?>",
+  "dateModified": "<?= date('c') ?>"
+}
+</script>
+
 <?php $this->section('content'); ?>
 <div class="container mt-5">
     <div class="row justify-content-center">

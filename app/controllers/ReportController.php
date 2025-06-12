@@ -5,7 +5,7 @@ namespace App\Controllers;
 use App\Libraries\Controller;
 use App\Models\Report;
 use App\Libraries\PdfGenerator;
-use App\Services\OpenAIService;
+use App\Services\GeminiService;
 
 class ReportController extends Controller
 {
@@ -89,17 +89,26 @@ if (empty($birth_date_input)) {
             
             // Generate AI-powered content
             try {
-                $openAIService = new OpenAIService();
-                $aiContent = $openAIService->generateReportContent([
-                    'birth_date' => $birthDate,
-                    'historical_data' => $reportData
-                ]);
+                $geminiService = new GeminiService();
+                
+                // Generate different types of content
+                $soulsArchetype = $geminiService->generateSoulsArchetype("Provide a Soul's Archetype interpretation based on the birth date {$birthDate}. Focus on core identity, life purpose, and innate talents. Format as a concise, insightful paragraph.");
+                $planetaryInfluence = $geminiService->generatePlanetaryInfluence("Provide a Planetary Influence interpretation based on the birth date {$birthDate}. Describe how key planets might shape personality and life events. Format as a concise, insightful paragraph.");
+                $lifePathNumber = $geminiService->generateLifePathNumber("Provide a Life Path Number interpretation for someone born on {$birthDate}. Explain its significance for challenges, opportunities, and overall life journey. Format as a concise, insightful paragraph.");
+                $cosmicSummary = $geminiService->generateCosmicSummary("Generate a Cosmic Summary for someone born on {$birthDate}. Synthesize the key insights into a brief, empowering overview. Format as a concise, insightful paragraph.");
+                
+                $aiContent = [
+                    'souls_archetype' => $soulsArchetype,
+                    'planetary_influence' => $planetaryInfluence,
+                    'life_path_number' => $lifePathNumber,
+                    'cosmic_summary' => $cosmicSummary
+                ];
                 
                 // Merge AI content with processed data
                 $reportData['ai_content'] = $aiContent;
             } catch (\Exception $e) {
                 // Log AI service error but continue with basic report
-                error_log('OpenAI Service Error: ' . $e->getMessage());
+                error_log('Gemini Service Error: ' . $e->getMessage());
                 $reportData['ai_content'] = null;
             }
             
@@ -152,7 +161,39 @@ if (empty($birth_date_input)) {
         if ($user && method_exists($user, 'hasActiveSubscription')) {
             $hasActiveSubscription = $user->hasActiveSubscription();
         }
-        $this->view('reports/preview', ['hasActiveSubscription' => $hasActiveSubscription]);
+        
+        // Get report data from session
+        $report = session('temp_report');
+        $premiumContent = null;
+        
+        // Generate premium content for subscribers
+        if ($hasActiveSubscription && $report) {
+            try {
+                $geminiService = new GeminiService();
+                
+                // Generate enhanced premium content
+                $soulsArchetype = $geminiService->generateSoulsArchetype("Provide an in-depth Soul's Archetype interpretation for someone born on {$report['birth_date']}. Include detailed insights about core identity, life purpose, innate talents, and spiritual path. Format as comprehensive, engaging content.");
+                $planetaryInfluence = $geminiService->generatePlanetaryInfluence("Provide detailed Planetary Influence interpretation for someone born on {$report['birth_date']}. Include specific planetary aspects, their influence on personality, relationships, and life events. Format as comprehensive, engaging content.");
+                $lifePathNumber = $geminiService->generateLifePathNumber("Provide an extensive Life Path Number interpretation for someone born on {$report['birth_date']}. Include detailed analysis of challenges, opportunities, life lessons, and karmic patterns. Format as comprehensive, engaging content.");
+                $cosmicSummary = $geminiService->generateCosmicSummary("Generate an extensive Cosmic Summary for someone born on {$report['birth_date']}. Provide deep insights, spiritual guidance, and empowering perspectives. Format as comprehensive, engaging content.");
+                
+                $premiumContent = [
+                    'souls_archetype' => $soulsArchetype,
+                    'planetary_influence' => $planetaryInfluence,
+                    'life_path_number' => $lifePathNumber,
+                    'cosmic_summary' => $cosmicSummary
+                ];
+            } catch (Exception $e) {
+                error_log('Error generating premium content: ' . $e->getMessage());
+                $premiumContent = null;
+            }
+        }
+        
+        $this->view('reports/preview', [
+            'hasActiveSubscription' => $hasActiveSubscription,
+            'premiumContent' => $premiumContent,
+            'report' => $report
+        ]);
     }
     
     /**

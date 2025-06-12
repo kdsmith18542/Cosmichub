@@ -8,7 +8,7 @@ A comprehensive astrological platform for generating personalized reports and in
 
 #### Core Functionality
 - [x] User authentication and profile management (JWT)
-- [x] Astrological report generation with AI integration (OpenAI)
+- [x] Astrological report generation with AI integration (Gemini)
 - [x] Report management system (CRUD operations)
 - [x] Export functionality (PDF/CSV)
 - [x] Credit-based system for report generation
@@ -75,7 +75,7 @@ A comprehensive astrological platform for generating personalized reports and in
 - **Database**: MongoDB with Mongoose ODM
 - **Authentication**: JWT
 - **Payments**: Stripe Integration
-- **AI Integration**: OpenAI API
+- **AI Integration**: Google Gemini API
 - **PDF Generation**: PDFKit
 - **Caching**: node-cache
 

@@ -1,102 +1,104 @@
 <?php require_once __DIR__ . '/../layouts/header.php'; ?>
 
-<div class="container mx-auto px-4 py-8">
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
-        <h1 class="text-2xl font-bold text-gray-800 dark:text-white mb-4">Birthday Rarity Score</h1>
+<div class="container py-4">
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <h1 class="h2 fw-bold mb-4">Birthday Rarity Score</h1>
         
-        <?php if (!$hasBirthdate): ?>
-            <div class="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 mb-6" role="alert">
-                <p>You haven't set your birthdate yet. Please update your profile to see your Birthday Rarity Score.</p>
-                <div class="mt-3">
-                    <a href="/profile" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded">
-                        Update Profile
-                    </a>
+            <?php if (!$hasBirthdate): ?>
+                <div class="alert alert-warning border-start border-warning border-4" role="alert">
+                    <p>You haven't set your birthdate yet. Please update your profile to see your Birthday Rarity Score.</p>
+                    <div class="mt-3">
+                        <a href="/profile" class="btn btn-primary">
+                            Update Profile
+                        </a>
+                    </div>
                 </div>
-            </div>
-        <?php else: ?>
-            <div class="flex flex-col md:flex-row items-center justify-between">
-                <div class="w-full md:w-1/2 mb-6 md:mb-0">
-                    <p class="text-gray-600 dark:text-gray-300 mb-4">
-                        Your birthday rarity score indicates how unique your birth date is compared to others.
-                        The score is calculated based on various factors including the month, day, proximity to holidays,
-                        and whether you were born on a leap year.
-                    </p>
-                    
-                    <div class="mb-4">
-                        <p class="text-gray-600 dark:text-gray-300"><strong>Your Birthdate:</strong> <?php echo date('F j, Y', strtotime($user->birthdate)); ?></p>
-                    </div>
-                    
-                    <div class="mb-4">
-                        <p class="text-gray-600 dark:text-gray-300"><strong>Rarity Level:</strong> <span style="color: <?php echo e($rarityColor); ?>"><?php echo e($rarityDescription); ?></span></p>
-                    </div>
-                    
-                    <div class="mb-6">
-                        <p class="text-gray-600 dark:text-gray-300">
-                            <?php echo e($this->getRarityExplanation($rarityScore, $rarityDescription)); ?>
+            <?php else: ?>
+                <div class="row align-items-center">
+                    <div class="col-md-6 mb-4 mb-md-0">
+                        <p class="text-muted mb-4">
+                            Your birthday rarity score indicates how unique your birth date is compared to others.
+                            The score is calculated based on various factors including the month, day, proximity to holidays,
+                            and whether you were born on a leap year.
                         </p>
-                    </div>
-                    
-                    <div>
-                        <a href="#" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded mr-2" onclick="shareScore(); return false;">
-                            <i class="fas fa-share-alt mr-1"></i> Share My Score
-                        </a>
-                        <a href="/dashboard" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded">
-                            Back to Dashboard
-                        </a>
-                    </div>
-                    
-                    <!-- Referral Status -->
-                    <div class="mt-4 p-4 bg-blue-50 dark:bg-blue-900 rounded-lg">
-                        <h3 class="font-bold text-gray-800 dark:text-white mb-2">Share to Unlock Full Report</h3>
-                        <?php if ($hasEnoughReferrals): ?>
-                            <div class="text-green-600 dark:text-green-400 mb-2">
-                                <i class="fas fa-check-circle mr-1"></i> Unlocked! Thank you for sharing.
-                            </div>
-                        <?php else: ?>
-                            <p class="text-gray-600 dark:text-gray-300 mb-2">
-                                Share your unique link with friends. When <?php echo e($remainingReferrals); ?> more friends generate their score, you'll unlock the full detailed report!
-                            </p>
-                            <div class="flex items-center mt-2">
-                                <div class="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700 mr-2">
-                                    <div class="bg-blue-600 h-2.5 rounded-full" style="width: <?php echo min(100, ($referral->successful_referrals / 3) * 100); ?>%"></div>
-                                </div>
-                                <span class="text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap"><?php echo e($referral->successful_referrals); ?>/3</span>
-                            </div>
-                        <?php endif; ?>
                         
-                        <div class="mt-3">
-                            <div class="flex">
-                                <input type="text" id="referralLink" value="<?php echo e($referralUrl); ?>" class="flex-grow px-3 py-2 border border-gray-300 rounded-l-md focus:outline-none focus:ring-blue-500 focus:border-blue-500" readonly>
-                                <button onclick="copyReferralLink()" class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 rounded-r-md">
-                                    <i class="fas fa-copy"></i>
-                                </button>
+                        <div class="mb-4">
+                            <p class="text-muted"><strong>Your Birthdate:</strong> <?php echo date('F j, Y', strtotime($user->birthdate)); ?></p>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <p class="text-muted"><strong>Rarity Level:</strong> <span style="color: <?php echo e($rarityColor); ?>"><?php echo e($rarityDescription); ?></span></p>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <p class="text-muted">
+                                <?php echo e($this->getRarityExplanation($rarityScore, $rarityDescription)); ?>
+                            </p>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <a href="#" class="btn btn-primary me-2" onclick="shareScore(); return false;">
+                                <i class="fas fa-share-alt me-1"></i> Share My Score
+                            </a>
+                            <a href="/dashboard" class="btn btn-secondary">
+                                Back to Dashboard
+                            </a>
+                        </div>
+                        
+                        <!-- Referral Status -->
+                        <div class="mt-4 p-4 bg-light rounded">
+                            <h3 class="fw-bold mb-2">Share to Unlock Full Report</h3>
+                            <?php if ($hasEnoughReferrals): ?>
+                                <div class="text-success mb-2">
+                                    <i class="fas fa-check-circle me-1"></i> Unlocked! Thank you for sharing.
+                                </div>
+                            <?php else: ?>
+                                <p class="text-muted mb-2">
+                                    Share your unique link with friends. When <?php echo e($remainingReferrals); ?> more friends generate their score, you'll unlock the full detailed report!
+                                </p>
+                                <div class="d-flex align-items-center mt-2">
+                                    <div class="progress flex-grow-1 me-2" style="height: 10px;">
+                                        <div class="progress-bar bg-primary" style="width: <?php echo min(100, ($referral->successful_referrals / 3) * 100); ?>%"></div>
+                                    </div>
+                                    <span class="small text-muted text-nowrap"><?php echo e($referral->successful_referrals); ?>/3</span>
+                                </div>
+                            <?php endif; ?>
+                            
+                            <div class="mt-3">
+                                <div class="input-group">
+                                    <input type="text" id="referralLink" value="<?php echo e($referralUrl); ?>" class="form-control" readonly>
+                                    <button onclick="copyReferralLink()" class="btn btn-primary">
+                                        <i class="fas fa-copy"></i>
+                                    </button>
+                                </div>
+                            </div>
+                    </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6 d-flex justify-content-center">
+                        <div class="position-relative">
+                            <!-- Circular score display -->
+                            <div class="rounded-circle d-flex align-items-center justify-content-center" style="width: 16rem; height: 16rem; background: conic-gradient(<?php echo e($rarityColor); ?> <?php echo e($rarityScore); ?>%, #f8f9fa 0);">
+                                <div class="bg-white rounded-circle d-flex align-items-center justify-content-center" style="width: 12rem; height: 12rem;">
+                                    <div class="text-center">
+                                        <div class="display-3 fw-bold" style="color: <?php echo e($rarityColor); ?>"><?php echo e($rarityScore); ?></div>
+                                        <div class="text-muted small">RARITY SCORE</div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
                 
-                <div class="w-full md:w-1/2 flex justify-center">
-                    <div class="relative">
-                        <!-- Circular score display -->
-                        <div class="w-64 h-64 rounded-full flex items-center justify-center" style="background: conic-gradient(<?php echo e($rarityColor); ?> <?php echo e($rarityScore); ?>%, #f3f4f6 0);">
-                            <div class="w-48 h-48 bg-white dark:bg-gray-700 rounded-full flex items-center justify-center">
-                                <div class="text-center">
-                                    <div class="text-5xl font-bold" style="color: <?php echo e($rarityColor); ?>"><?php echo e($rarityScore); ?></div>
-                                    <div class="text-gray-500 dark:text-gray-300 text-sm">RARITY SCORE</div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="mt-8 border-t pt-6">
-                <h2 class="text-xl font-bold text-gray-800 dark:text-white mb-4">What Makes Your Birthday Special?</h2>
-                <?php if (!empty($hasActiveSubscription)): ?>
-                    <!-- Premium unlocked for subscribers -->
-                    <div class="bg-green-100 dark:bg-green-700 p-6 rounded-lg text-center mb-4">
-                        <div class="mb-4">
-                            <i class="fas fa-star text-4xl text-yellow-500"></i>
+                <div class="mt-5 border-top pt-4">
+                    <h2 class="h4 fw-bold mb-4">What Makes Your Birthday Special?</h2>
+                    <?php if (!empty($hasActiveSubscription)): ?>
+                        <!-- Premium unlocked for subscribers -->
+                        <div class="bg-success bg-opacity-10 p-4 rounded text-center mb-4">
+                            <div class="mb-3">
+                                <i class="fas fa-star display-4 text-warning"></i>
                         </div>
                         <h3 class="font-bold text-gray-800 dark:text-white mb-2">Premium Access Granted</h3>
                         <p class="text-gray-600 dark:text-gray-300 mb-4">

@@ -88,13 +88,121 @@ if (!$report) {
                 </div>
             </div>
 
-            <!-- Unlock Wall for Premium Content -->
+            <!-- Premium Content for Subscribers -->
             <?php if (!empty($hasActiveSubscription)): ?>
                 <div class="card shadow-sm mt-5">
-                    <div class="card-body text-center">
-                        <h3 class="mb-3 text-success"><i class="fas fa-star me-2"></i>Premium Access Granted</h3>
-                        <p class="mb-4">As a premium subscriber, you have instant access to detailed analysis, famous births, notable deaths, and AI-powered insights!</p>
-                        <!-- TODO: Insert premium content rendering here -->
+                    <div class="card-body">
+                        <div class="text-center mb-4">
+                            <h3 class="mb-3 text-success"><i class="fas fa-star me-2"></i>Premium Access Granted</h3>
+                            <p class="mb-0">As a premium subscriber, you have instant access to detailed analysis and AI-powered insights!</p>
+                        </div>
+                        
+                        <?php if (!empty($premiumContent)): ?>
+                            <!-- Soul's Archetype -->
+                            <?php if (!empty($premiumContent['souls_archetype'])): ?>
+                                <div class="mb-4">
+                                    <h5 class="text-primary"><i class="fas fa-soul me-2"></i>Soul's Archetype</h5>
+                                    <div class="bg-light p-3 rounded">
+                                        <p class="mb-0"><?= nl2br(htmlspecialchars($premiumContent['souls_archetype'])) ?></p>
+                                    </div>
+                                </div>
+                            <?php endif; ?>
+                            
+                            <!-- Planetary Influence -->
+                            <?php if (!empty($premiumContent['planetary_influence'])): ?>
+                                <div class="mb-4">
+                                    <h5 class="text-primary"><i class="fas fa-globe me-2"></i>Planetary Influence</h5>
+                                    <div class="bg-light p-3 rounded">
+                                        <p class="mb-0"><?= nl2br(htmlspecialchars($premiumContent['planetary_influence'])) ?></p>
+                                    </div>
+                                </div>
+                            <?php endif; ?>
+                            
+                            <!-- Life Path Number -->
+                            <?php if (!empty($premiumContent['life_path_number'])): ?>
+                                <div class="mb-4">
+                                    <h5 class="text-primary"><i class="fas fa-route me-2"></i>Life Path Number</h5>
+                                    <div class="bg-light p-3 rounded">
+                                        <div class="d-flex align-items-center mb-2">
+                                            <span class="badge bg-primary fs-6 me-3"><?= htmlspecialchars($premiumContent['life_path_number']['number']) ?></span>
+                                            <strong>Your Life Path Number</strong>
+                                        </div>
+                                        <p class="mb-0"><?= nl2br(htmlspecialchars($premiumContent['life_path_number']['interpretation'])) ?></p>
+                                    </div>
+                                </div>
+                            <?php endif; ?>
+                            
+                            <!-- Cosmic Summary -->
+                            <?php if (!empty($premiumContent['cosmic_summary'])): ?>
+                                <div class="mb-4">
+                                    <h5 class="text-primary"><i class="fas fa-stars me-2"></i>Cosmic Summary</h5>
+                                    <div class="bg-light p-3 rounded">
+                                        <p class="mb-0"><?= nl2br(htmlspecialchars($premiumContent['cosmic_summary'])) ?></p>
+                                    </div>
+                                </div>
+                            <?php endif; ?>
+                            
+                            <!-- Historical Data from Report -->
+                            <?php if (!empty($report['data'])): ?>
+                                <?php $reportData = $report['data']; ?>
+                                
+                                <!-- Famous Births -->
+                                <?php if (!empty($reportData['births'])): ?>
+                                    <div class="mb-4">
+                                        <h5 class="text-primary"><i class="fas fa-baby me-2"></i>Notable Births on Your Day</h5>
+                                        <div class="bg-light p-3 rounded">
+                                            <ul class="list-unstyled mb-0">
+                                                <?php foreach (array_slice($reportData['births'], 0, 5) as $birth): ?>
+                                                    <li class="mb-2">
+                                                        <strong><?= htmlspecialchars($birth['year']) ?>:</strong> 
+                                                        <?= htmlspecialchars($birth['text']) ?>
+                                                    </li>
+                                                <?php endforeach; ?>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                <?php endif; ?>
+                                
+                                <!-- Notable Deaths -->
+                                <?php if (!empty($reportData['deaths'])): ?>
+                                    <div class="mb-4">
+                                        <h5 class="text-primary"><i class="fas fa-skull-crossbones me-2"></i>Notable Deaths on Your Day</h5>
+                                        <div class="bg-light p-3 rounded">
+                                            <ul class="list-unstyled mb-0">
+                                                <?php foreach (array_slice($reportData['deaths'], 0, 5) as $death): ?>
+                                                    <li class="mb-2">
+                                                        <strong><?= htmlspecialchars($death['year']) ?>:</strong> 
+                                                        <?= htmlspecialchars($death['text']) ?>
+                                                    </li>
+                                                <?php endforeach; ?>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                <?php endif; ?>
+                                
+                                <!-- Historical Events -->
+                                <?php if (!empty($reportData['events'])): ?>
+                                    <div class="mb-4">
+                                        <h5 class="text-primary"><i class="fas fa-calendar-alt me-2"></i>Historical Events on Your Day</h5>
+                                        <div class="bg-light p-3 rounded">
+                                            <ul class="list-unstyled mb-0">
+                                                <?php foreach (array_slice($reportData['events'], 0, 5) as $event): ?>
+                                                    <li class="mb-2">
+                                                        <strong><?= htmlspecialchars($event['year']) ?>:</strong> 
+                                                        <?= htmlspecialchars($event['text']) ?>
+                                                    </li>
+                                                <?php endforeach; ?>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                <?php endif; ?>
+                            <?php endif; ?>
+                        <?php else: ?>
+                            <div class="text-center text-muted">
+                                <p><i class="fas fa-spinner fa-spin me-2"></i>Generating your personalized premium content...</p>
+                                <small>This may take a moment as we create your unique cosmic insights.</small>
+                            </div>
+                        <?php endif; ?>
                     </div>
                 </div>
             <?php else: ?>

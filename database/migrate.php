@@ -46,7 +46,11 @@ class DatabaseMigrator
     }
     
     /**
-     * Get all migration files
+     * Get all migration files.
+     * Note: Migration files (e.g., '2025_06_14_000001_add_ai_content_to_archetypes_table.php')
+     * are discovered automatically from the migrations directory specified during instantiation.
+     * This method reads all .sql and .php files from that directory.
+     * There is no hardcoded list of migration files within this script.
      */
     private function getMigrationFiles(): array
     {

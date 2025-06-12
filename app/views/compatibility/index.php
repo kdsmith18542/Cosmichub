@@ -210,7 +210,22 @@ $user = auth_user();
                                             <i class="fas fa-star"></i> As a premium subscriber, you have instant access to the full premium analysis!
                                         </div>
                                         <div id="premiumAnalysis">
-                                            <!-- Premium content will be loaded here -->
+                                            <?php if (!empty($premiumCompatibilityContent)): ?>
+                                                <div class="card border-primary">
+                                                    <div class="card-header bg-primary text-white">
+                                                        <h5 class="mb-0"><i class="fas fa-heart me-2"></i>Premium Compatibility Insights</h5>
+                                                    </div>
+                                                    <div class="card-body">
+                                                        <div class="premium-content">
+                                                            <?= nl2br(htmlspecialchars($premiumCompatibilityContent)) ?>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            <?php else: ?>
+                                                <div class="text-center text-muted p-4">
+                                                    <i class="fas fa-spinner fa-spin me-2"></i>Generating your premium compatibility insights...
+                                                </div>
+                                            <?php endif; ?>
                                         </div>
                                     <?php elseif ($hasEnoughReferrals ?? false): ?>
                                         <div class="alert alert-success">
