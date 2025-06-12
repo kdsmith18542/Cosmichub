@@ -109,7 +109,7 @@ try {
 echo "\n=== Test 7: Other App Classes Test ===\n";
 $testClasses = [
     'App\\Libraries\\Database',
-    'App\\Libraries\\Router',
+    'App\\Libraries\\PHPRouter',
     'App\\Controllers\\HomeController'
 ];
 
