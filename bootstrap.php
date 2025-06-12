@@ -210,23 +210,23 @@ foreach ($requiredDirs as $name => $dir) {
     }
     
     if (!is_writable($dir)) {
-        // Temporarily add more debugging
-        error_log("Debug: Directory $dir is NOT writable according to is_writable(). Attempting chmod.");
-        clearstatcache(); // Clear stat cache before chmod, just in case
-        if (!chmod($dir, 0755)) {
-            // Capture and log the last PHP error
-            $error = error_get_last();
-            $chmod_error_message = isset($error['message']) ? $error['message'] : 'No specific error message from chmod.';
-            error_log("Warning: chmod(0755) on $dir FAILED. PHP error: " . $chmod_error_message);
-            if (getenv('APP_ENV') === 'development' || getenv('APP_DEBUG') === 'true') {
-                // Original error log message
-                error_log("Original Warning: Directory is not writable: $dir"); 
+        // Log directory permission status without attempting chmod (AWS EC2 hosting compatibility)
+        if (getenv('APP_ENV') === 'development' || getenv('APP_DEBUG') === 'true') {
+            error_log("Info: Directory $dir is not writable according to is_writable(). This is normal for AWS EC2 hosting environments with security restrictions.");
+        }
+        // Only attempt chmod for storage and logs directories that the application needs to write to
+        if ($name === 'storage' || $name === 'logs') {
+            clearstatcache();
+            if (!chmod($dir, 0755)) {
+                if (getenv('APP_ENV') === 'development' || getenv('APP_DEBUG') === 'true') {
+                    error_log("Warning: Could not set permissions on $dir. This may be restricted by hosting environment.");
+                }
             }
-        } else {
-            error_log("Debug: chmod(0755) on $dir SUCCEEDED.");
         }
     } else {
-        error_log("Debug: Directory $dir IS writable according to is_writable().");
+        if (getenv('APP_ENV') === 'development' || getenv('APP_DEBUG') === 'true') {
+            error_log("Info: Directory $dir is writable.");
+        }
     }
 }
 
