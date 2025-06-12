@@ -25,12 +25,8 @@ require_once APP_ROOT . '/bootstrap.php';
 
 // Start the application
 try {
-    // Initialize the router
-    require_once APP_DIR . '/libraries/PHPRouter.php';
-    $router = new \App\Libraries\PHPRouter();
-    
-    // Load routes
-    require_once APP_DIR . '/routes/web.php';
+    // Load routes and get the router instance
+    $router = require_once APP_DIR . '/routes/web.php';
     
     // Handle the request
     $router->handleRequest();

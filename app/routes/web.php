@@ -6,7 +6,7 @@
 use App\Libraries\PHPRouter;
 
 // Create a new router instance
-$router = new PHPRouter();
+$router = new \App\Libraries\PHPRouter();
 
 // Home page - Viral Landing Page
 $router->get('/', 'HomeController', 'index');
