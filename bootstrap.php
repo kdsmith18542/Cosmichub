@@ -518,7 +518,7 @@ spl_autoload_register(function ($class) {
     // Replace the namespace prefix with the base directory, replace namespace
     // separators with directory separators in the relative class name, append
     // with .php
-    $file = $baseDir . str_replace('\\', DIRECTORY_SEPARATOR, $relativeClass) . '.php';
+    $file = $baseDir . strtolower(str_replace('\\', DIRECTORY_SEPARATOR, $relativeClass)) . '.php';
     
     // Debug the autoloader path resolution
     if (getenv('APP_ENV') === 'development' || getenv('APP_DEBUG') === 'true') {
