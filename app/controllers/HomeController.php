@@ -130,13 +130,11 @@ class HomeController extends Controller
     {
         require_once __DIR__ . '/../helpers/AstrologyHelper.php';
         
-        $astrologyHelper = new AstrologyHelper();
-        
         // 1. Cosmic Identity
-        $westernZodiac = $astrologyHelper->getWesternZodiac($month, $day);
-        $chineseZodiac = $astrologyHelper->getChineseZodiac($year);
-        $birthstone = $astrologyHelper->getBirthstone($month);
-        $birthFlower = $astrologyHelper->getBirthFlower($month);
+        $westernZodiac = \App\Helpers\AstrologyHelper::getWesternZodiacSign($month, $day);
+        $chineseZodiac = \App\Helpers\AstrologyHelper::getChineseZodiacSign($year);
+        $birthstone = \App\Helpers\AstrologyHelper::getBirthstone($month);
+        $birthFlower = \App\Helpers\AstrologyHelper::getBirthFlower($month);
 
         // 2. Rarity Score
         $rarityController = new RarityScoreController();
