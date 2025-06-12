@@ -1,0 +1,27 @@
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Redirect Trailing Slashes If Not A Folder...
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteCond %{REQUEST_URI} (.+)/$
+    RewriteRule ^ %1 [L,R=301]
+
+    # Handle Front Controller...
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteRule ^ index.php [L]
+
+    # Handle Authorization Header if it exists
+    RewriteCond %{HTTP:Authorization} .
+    RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+</IfModule>
+
+# Deny access to files starting with .ht (e.g. .htaccess, .htpasswd)
+<FilesMatch "^\.ht">
+    Require all denied
+</FilesMatch>
+
+# Deny access to common sensitive files and directories if they exist in public_html
+<FilesMatch "\.(env|log|ini|bak|config|sql|fla|psd|sh|git|svn|cvs)$">
+    Require all denied
+</FilesMatch>

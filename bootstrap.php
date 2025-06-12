@@ -210,11 +210,23 @@ foreach ($requiredDirs as $name => $dir) {
     }
     
     if (!is_writable($dir)) {
+        // Temporarily add more debugging
+        error_log("Debug: Directory $dir is NOT writable according to is_writable(). Attempting chmod.");
+        clearstatcache(); // Clear stat cache before chmod, just in case
         if (!chmod($dir, 0755)) {
+            // Capture and log the last PHP error
+            $error = error_get_last();
+            $chmod_error_message = isset($error['message']) ? $error['message'] : 'No specific error message from chmod.';
+            error_log("Warning: chmod(0755) on $dir FAILED. PHP error: " . $chmod_error_message);
             if (getenv('APP_ENV') === 'development' || getenv('APP_DEBUG') === 'true') {
-                error_log("Warning: Directory is not writable: $dir");
+                // Original error log message
+                error_log("Original Warning: Directory is not writable: $dir"); 
             }
+        } else {
+            error_log("Debug: chmod(0755) on $dir SUCCEEDED.");
         }
+    } else {
+        error_log("Debug: Directory $dir IS writable according to is_writable().");
     }
 }
 
