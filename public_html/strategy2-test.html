@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Strategy 2 Test - CosmicHub</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        .status {
+            background: #d4edda;
+            color: #155724;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        .info {
+            background: #e7f3ff;
+            color: #0c5460;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Strategy 2 Deployment Test</h1>
+        
+        <div class="status">
+            <strong>✅ Test file loaded!</strong> Strategy 2 basic file serving works.
+        </div>
+        
+        <div class="info">
+            <h3>Server Information:</h3>
+            <p><strong>Server:</strong> <?php echo $_SERVER['SERVER_SOFTWARE'] ?? 'Unknown'; ?></p>
+            <p><strong>PHP Version:</strong> <?php echo phpversion(); ?></p>
+            <p><strong>Document Root:</strong> <?php echo $_SERVER['DOCUMENT_ROOT'] ?? 'Unknown'; ?></p>
+            <p><strong>Current Directory:</strong> <?php echo __DIR__; ?></p>
+            <p><strong>Script Name:</strong> <?php echo $_SERVER['SCRIPT_NAME'] ?? 'Unknown'; ?></p>
+        </div>
+        
+        <div class="info">
+            <h3>Strategy 2 File Structure Check:</h3>
+            <p><strong>Main index.php:</strong> <?php echo file_exists('index.php') ? '✅ Found' : '❌ Missing'; ?></p>
+            <p><strong>Bootstrap file:</strong> <?php echo file_exists('bootstrap.php') ? '✅ Found' : '❌ Missing'; ?></p>
+            <p><strong>App directory:</strong> <?php echo is_dir('app') ? '✅ Found' : '❌ Missing'; ?></p>
+            <p><strong>Config directory:</strong> <?php echo is_dir('config') ? '✅ Found' : '❌ Missing'; ?></p>
+            <p><strong>Assets directory:</strong> <?php echo is_dir('assets') ? '✅ Found' : '❌ Missing'; ?></p>
+            <p><strong>.htaccess file:</strong> <?php echo file_exists('.htaccess') ? '✅ Found' : '❌ Missing'; ?></p>
+        </div>
+        
+        <div class="info">
+            <h3>Path Testing:</h3>
+            <?php
+            $paths_to_test = [
+                'app/config/app.php' => 'App config',
+                'config/config.php' => 'Main config',
+                'app/controllers/' => 'Controllers directory',
+                'app/views/' => 'Views directory',
+                'database/' => 'Database directory'
+            ];
+            
+            foreach ($paths_to_test as $path => $description) {
+                $exists = file_exists($path) || is_dir($path);
+                $status = $exists ? '✅' : '❌';
+                echo "<p><strong>{$description}:</strong> {$status} {$path}</p>";
+            }
+            ?>
+        </div>
+        
+        <div class="info">
+            <h3>Bootstrap Test:</h3>
+            <?php
+            if (file_exists('bootstrap.php')) {
+                echo '<p><strong>✅ Bootstrap file found</strong> - Strategy 2 should work!</p>';
+                echo '<p>You can proceed with full Strategy 2 deployment.</p>';
+            } else {
+                echo '<p class="error"><strong>❌ Bootstrap file missing</strong> - Strategy 2 files not properly uploaded.</p>';
+            }
+            ?>
+        </div>
+        
+        <p style="text-align: center; margin-top: 30px;">
+            <a href="/" style="color: #007bff; text-decoration: none;">← Try Main Site</a> |
+            <a href="index.php" style="color: #007bff; text-decoration: none;">Test index.php</a>
+        </p>
+    </div>
+</body>
+</html>

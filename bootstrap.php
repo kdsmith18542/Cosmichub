@@ -24,31 +24,20 @@ ini_set('log_errors', '1');
 ini_set('html_errors', '0');
 
 // Define application paths before any output
-// Use __DIR__ to get the current script's directory (most reliable method)
-$scriptDir = __DIR__;
 
-// Define possible root directories to check
-$possibleRoots = [
-    $scriptDir,                                  // Current script directory
-    dirname($scriptDir),                        // One level up
-    dirname(dirname($scriptDir)),               // Two levels up
-    dirname(dirname(dirname($scriptDir)))       // Three levels up
-];
+// For shared hosting (Strategy 1), __DIR__ within this bootstrap.php 
+// (located in 'application_files' on the server, or project root locally before upload)
+// is the application's root directory.
+$rootDir = __DIR__;
 
-// Find the first valid root directory that contains app/ and public/
-$rootDir = null;
-foreach ($possibleRoots as $possibleRoot) {
-    $possibleAppDir = $possibleRoot . '/app';
-    $possiblePublicDir = $possibleRoot . '/public';
-    
-    if (is_dir($possibleAppDir) && is_dir($possiblePublicDir)) {
-        $rootDir = $possibleRoot;
-        break;
-    }
-}
-
-if ($rootDir === null) {
-    die("Could not determine project root directory. Tried: " . implode(", ", $possibleRoots));
+// Verify that the 'app' directory exists within this $rootDir
+// This check assumes 'app' is directly inside the directory containing bootstrap.php
+if (!is_dir($rootDir . '/app')) {
+    // If bootstrap.php is in a subdirectory (e.g., project_root/config/bootstrap.php) 
+    // and 'app' is at project_root/app, adjust $rootDir definition accordingly, e.g.:
+    // $rootDir = dirname(__DIR__); // if bootstrap.php is one level down from project root
+    // if (!is_dir($rootDir . '/app')) { ... }
+    die("Critical: The 'app' directory was not found in " . $rootDir . ". Please check your file structure. This script expects 'bootstrap.php' to be in the project root or for paths to be adjusted accordingly.");
 }
 
 // Define paths using forward slashes for consistency

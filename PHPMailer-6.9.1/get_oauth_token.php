@@ -49,7 +49,13 @@ use Greew\OAuth2\Client\Provider\Azure;
 
 if (!isset($_GET['code']) && !isset($_POST['provider'])) {
     ?>
-<html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OAuth Token Generator</title>
+</head>
 <body>
 <form method="post">
     <h1>Select Provider</h1>

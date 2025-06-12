@@ -3,10 +3,10 @@
  * Web routes for the application
  */
 
-use App\Libraries\Router;
+use App\Libraries\PHPRouter;
 
 // Create a new router instance
-$router = new Router();
+$router = new PHPRouter();
 
 // Home page - Viral Landing Page
 $router->get('/', 'HomeController', 'index');

@@ -8,20 +8,102 @@ This guide will help you deploy CosmicHub on shared Linux hosting with DirectAdm
 - PHP 7.4 or higher
 - SQLite support enabled
 - Apache with mod_rewrite enabled
-- SSH access (optional but recommended)
+- File Manager access through DirectAdmin
 
 ## Deployment Steps
 
+Understanding and correctly configuring your domain's **DocumentRoot** is crucial for a successful deployment. The DocumentRoot is the web-accessible folder where your domain looks for files to serve. In DirectAdmin, this is typically `public_html` by default for the main domain, or a subdirectory within `public_html` for subdomains.
+
+**The Problem of Incorrect Redirects (e.g., to `/public/public_html/`):**
+If you see your site redirecting to a strange path like `yourdomain.com/public/public_html/` and getting a 403 Forbidden error, it usually means:
+1. Your domain's DocumentRoot might be set to your project's root directory (e.g., `/home/user/domains/yourdomain.com/`).
+2. Your project's root `.htaccess` file is correctly redirecting requests to its `/public/` subdirectory.
+3. You have mistakenly created a `public_html` folder *inside* your project's `public` folder on the server (e.g., `/home/user/domains/yourdomain.com/public/public_html/`).
+
+**Choose ONE of the following deployment strategies based on your hosting setup:**
+
+### Strategy 1: Standard Shared Hosting (DocumentRoot is `public_html` - Recommended for Simplicity)
+
+This is the most common setup for shared hosting using DirectAdmin.
+
+1.  **Verify DocumentRoot:** In DirectAdmin, confirm that your domain (`cosmichub.online`) points to `/home/your_username/domains/yourdomain.com/public_html/`. This is usually the default.
+2.  **File Upload - Critical Structure:**
+    *   **Public Files:** Upload the **contents** of your local `Cosmichub/public/` directory (which includes `index.php`, `assets/`, `favicon.ico`, and the `.htaccess` file from *within* the local `public` folder) directly into the server's `public_html` directory.
+        *   Server path example: `/home/your_username/domains/yourdomain.com/public_html/index.php`
+        *   Server path example: `/home/your_username/domains/yourdomain.com/public_html/.htaccess` (this is the one from your local `public` folder)
+    *   **Application Files:** Create a new directory *outside* (one level above) `public_html` to store the rest of your application code. For example, create `/home/your_username/domains/yourdomain.com/application_files/`.
+        *   Upload all other project files and folders from your local `Cosmichub` directory (like `app/`, `bootstrap.php`, `vendor/`, `config/`, `storage/`, etc.) into this `application_files/` directory.
+        *   Server path example: `/home/your_username/domains/yourdomain.com/application_files/bootstrap.php`
+        *   **Important:** Do NOT upload your local project's root `.htaccess` file (the one designed to redirect to a `/public/` subfolder) into either `public_html` or `application_files` in this strategy. It's not needed and will cause issues.
+3.  **Update `index.php` Path:**
+    *   Open the `index.php` file that you uploaded to `public_html/index.php`.
+    *   Modify the line that requires `bootstrap.php` to point to its new location:
+        ```php
+        // Change this:
+        // require __DIR__ . '/../bootstrap.php'; 
+
+        // To this (assuming you named the folder 'application_files'):
+        require __DIR__ . '/../application_files/bootstrap.php';
+        ```
+
+### Strategy 2: DocumentRoot is Project Root (Less Common on Shared Hosting)
+
+Use this strategy if your DocumentRoot in DirectAdmin is set to the main project directory (e.g., `/home/your_username/domains/yourdomain.com/`) and you cannot change it to a subdirectory like `public` or `public_html`.
+
+1.  **Verify DocumentRoot:** Confirm in DirectAdmin that your domain points to the root directory where you will upload your entire project (e.g., `/home/your_username/domains/yourdomain.com/`).
+2.  **File Upload:**
+    *   Upload your **entire** local `Cosmichub` project directory (including the root `.htaccess`, the `public/` folder, `app/`, `bootstrap.php`, etc.) to the server's DocumentRoot path (e.g., `/home/your_username/domains/yourdomain.com/`).
+    *   Your file structure on the server will mirror your local structure:
+        *   `/home/your_username/domains/yourdomain.com/.htaccess` (this is your project's root .htaccess)
+        *   `/home/your_username/domains/yourdomain.com/public/index.php`
+        *   `/home/your_username/domains/yourdomain.com/bootstrap.php`
+3.  **Check for Nested `public_html`:**
+    *   **Crucially, ensure there is NO `public_html` folder mistakenly created *inside* your `public` folder on the server.** The path `/home/your_username/domains/yourdomain.com/public/public_html/` should NOT exist. If it does, delete that inner `public_html` folder.
+4.  **`.htaccess` Files:**
+    *   The root `.htaccess` file (in `/home/your_username/domains/yourdomain.com/`) with the rule `RewriteRule ^(.*)$ /public/$1 [L,R=301]` will handle redirecting requests to the `public` folder.
+    *   The `.htaccess` file inside your `public` folder will handle requests within it.
+5.  **`index.php` Path:** The path `require __DIR__ . '/../bootstrap.php';` in `public/index.php` should be correct in this setup.
+
+### Strategy 3: DocumentRoot is Project's `public` Folder (Cleanest, if Host Allows)
+
+This is ideal if DirectAdmin allows you to set the DocumentRoot directly to your project's `public` subfolder.
+
+1.  **File Upload:**
+    *   Upload your entire local `Cosmichub` project to a base directory on your server, for example, `/home/your_username/domains/yourdomain.com/my_app/`.
+    *   This means `bootstrap.php` would be at `/home/your_username/domains/yourdomain.com/my_app/bootstrap.php` and your public content at `/home/your_username/domains/yourdomain.com/my_app/public/`.
+2.  **Set DocumentRoot:**
+    *   In DirectAdmin's "Domain Setup" (or similar section), change the DocumentRoot for `cosmichub.online` to point directly to your project's `public` folder: `/home/your_username/domains/yourdomain.com/my_app/public/`.
+3.  **Remove Root `.htaccess`:**
+    *   You do **not** need the `.htaccess` file that was in your local project root (the one with `RewriteRule ^(.*)$ /public/$1 [L,R=301]`). Delete it from `/home/your_username/domains/yourdomain.com/my_app/.htaccess` if you uploaded it. The server now directly serves from the `public` folder, so this redirect is unnecessary and potentially problematic.
+4.  **`public/.htaccess`:** The `.htaccess` file *inside* your `public` directory (`my_app/public/.htaccess`) is still needed and will function correctly.
+5.  **`index.php` Path:** The path `require __DIR__ . '/../bootstrap.php';` in `public/index.php` remains correct.
+
+---
+
 ### 1. Upload Files
 
-1. **Via File Manager (DirectAdmin):**
-   - Login to DirectAdmin
-   - Go to File Manager
-   - Navigate to `public_html` directory
-   - Upload all files from the `public` folder to `public_html`
-   - Upload all other project files (app, database, etc.) to the parent directory of `public_html`
+**Via DirectAdmin File Manager:**
 
-2. **Via FTP/SFTP:**
+1. **Login to DirectAdmin:**
+   - Access your hosting control panel
+   - Navigate to File Manager
+
+2. **Upload Public Files:**
+   - Navigate to `public_html` directory
+   - Upload all files from your project's `public` folder to `public_html`
+   - This includes: `index.php`, `.htaccess`, `assets/`, `js/`, `favicon.ico`
+
+3. **Upload Application Files:**
+   - Navigate back to the parent directory (usually `/home/username/`)
+   - Upload the following folders and files outside of `public_html`:
+     - `app/` folder
+     - `database/` folder
+     - `storage/` folder
+     - `bootstrap.php`
+     - `.env` file
+     - `composer.json`
+
+4. **Final Directory Structure:**
    ```
    /home/username/
    ├── public_html/          (contents of public folder)
@@ -40,28 +122,33 @@ This guide will help you deploy CosmicHub on shared Linux hosting with DirectAdm
 
 ### 2. Set File Permissions
 
-Set the following permissions via DirectAdmin File Manager or SSH:
+**Via DirectAdmin File Manager:**
 
-```bash
-# Make directories writable
-chmod 750 database/
-chmod 750 storage/
-chmod 750 storage/logs/
+1. **Navigate to each directory/file**
+2. **Right-click and select "Change Permissions" or "Properties"**
+3. **Set the following permissions:**
 
-# Make database file writable (if it exists)
-chmod 640 database/database.sqlite
+   - **Directories:**
+     - `database/` → 750 (Owner: read/write/execute, Group: read/execute)
+     - `storage/` → 750 (Owner: read/write/execute, Group: read/execute)
+     - `storage/logs/` → 750 (Owner: read/write/execute, Group: read/execute)
 
-# Secure sensitive files
-chmod 600 .env
-chmod 644 .htaccess
-```
+   - **Files:**
+     - `database/database.sqlite` → 640 (Owner: read/write, Group: read)
+     - `.env` → 600 (Owner: read/write only)
+     - `.htaccess` → 644 (Owner: read/write, Group/Others: read)
+
+**Permission Numbers Reference:**
+- 750 = rwxr-x--- (Owner: full access, Group: read/execute)
+- 644 = rw-r--r-- (Owner: read/write, Others: read only)
+- 640 = rw-r----- (Owner: read/write, Group: read only)
+- 600 = rw------- (Owner: read/write only)
 
 ### 3. Configure Environment
 
-1. **Copy and edit .env file:**
-   ```bash
-   cp .env.example .env
-   ```
+1. **Create .env file:**
+   - If you don't have a `.env` file, copy the contents from `.env.example`
+   - Use DirectAdmin File Manager to create a new file named `.env`
 
 2. **Update .env settings:**
    ```env

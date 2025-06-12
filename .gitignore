@@ -16,6 +16,10 @@ yarn-error.log*
 # Database
 *.sqlite
 *.sqlite3
+*.db
+*.backup.*
+database.sqlite.backup.*
+database.sqlite.new
 
 # IDE specific files
 .idea/
@@ -48,6 +52,18 @@ Thumbs.db
 # Testing
 /coverage/
 /phpunit.xml
+
+# Deployment files
+*.zip
+cosmichub-*-deployment/
+
+# Backup files
+*.backup
+*.bak
+
+# Temporary files
+*.tmp
+*.temp
 .nyc_output
 
 # Composer

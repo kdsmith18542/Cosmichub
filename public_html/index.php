@@ -16,7 +16,7 @@ error_reporting(E_ALL & ~E_NOTICE & ~E_STRICT & ~E_DEPRECATED);
 ini_set('display_errors', '0');
 ini_set('log_errors', '1');
 
-// Define the document root and application root
+// Define the document root and application root for Strategy 2
 define('DOCUMENT_ROOT', __DIR__);
 define('APP_ROOT', dirname(__DIR__));
 
