@@ -52,23 +52,22 @@ if (file_exists($appRoot . '/bootstrap.php')) {
             } else {
                 echo "✗ PDO SQLite driver is NOT available<br>";
                 echo "<h3>🔧 Solution for Ubuntu 24 on EC2:</h3>";
-                echo "<pre>";
-                echo "sudo apt update\n";
-                echo "sudo apt install php-pdo php-sqlite3\n";
-                echo "sudo systemctl restart apache2  # For Apache\n";
-                echo "# OR\n";
-                echo "sudo systemctl restart nginx    # For Nginx\n";
-                echo "\n# Verify installation:\n";
-                echo "php -m | grep -i pdo\n";
-                echo "php -m | grep -i sqlite\n";
-                echo "</pre>";
-                
-                echo "<h3>🔧 Alternative for older Ubuntu versions:</h3>";
-                echo "<pre>";
-                echo "sudo apt-get update\n";
-                echo "sudo apt-get install php-pdo php-sqlite3\n";
-                echo "sudo systemctl restart apache2\n";
-                echo "</pre>";
+    echo "<pre>";
+    echo "sudo apt update\n";
+    echo "sudo apt install php-sqlite3\n";
+    echo "sudo systemctl restart apache2  # For Apache (most common)\n";
+    echo "\n# If using nginx instead:\n";
+    echo "sudo systemctl restart nginx\n";
+    echo "\n# If nginx service not found, try:\n";
+    echo "sudo service nginx restart\n";
+    echo "\n# Verify installation:\n";
+    echo "php -m | grep -i pdo\n";
+    echo "php -m | grep -i sqlite\n";
+    echo "</pre>";
+    
+    echo "<h3>🔧 Note:</h3>";
+    echo "<p>The 'php-pdo' package doesn't exist separately in Ubuntu 24. PDO is included with php-sqlite3.</p>";
+    echo "<p>Your server appears to be using Apache (most common for shared hosting).</p>";
             }
         } else {
             echo "✗ PDO class is NOT available<br>";
