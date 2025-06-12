@@ -200,6 +200,13 @@ abstract class Model {
      * @return bool
      */
     public function delete() {
+        $deleted = $this->db->delete(
+            $this->table,
+            ['id' => $this->getKey()]
+        );
+        
+        return $deleted !== false;
+    }
 
     /**
      * Define a one-to-one or one-to-many inverse relationship.
@@ -226,23 +233,6 @@ abstract class Model {
     public function getForeignKey()
     {
         return snake_case(class_basename($this)) . '_id';
-    }
-        if (!$this->exists) {
-            return false;
-        }
-        
-        $deleted = Database::delete(
-            static::$table,
-            "{$this->getKeyName()} = :id",
-            ['id' => $this->getKey()]
-        );
-        
-        if ($deleted) {
-            $this->exists = false;
-            return true;
-        }
-        
-        return false;
     }
     
     /**
