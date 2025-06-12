@@ -241,7 +241,7 @@ class PHPRouter
         echo '<p class="mb-4">The requested page could not be found.</p>';
         echo '<a href="/" class="btn btn-primary">Return to Home</a>';
         echo '</div></div></div>';
-        echo '</body></html>';}
+        echo '</body></html>';
     }
     
     /**
