@@ -27,7 +27,7 @@ require_once APP_ROOT . '/bootstrap.php';
 try {
     // Initialize the router
     require_once APP_DIR . '/libraries/Router.php';
-    $router = new Router();
+    $router = new \App\Libraries\Router();
     
     // Load routes
     require_once APP_DIR . '/routes/web.php';
