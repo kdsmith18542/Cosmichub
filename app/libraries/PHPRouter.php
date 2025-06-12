@@ -229,11 +229,19 @@ class PHPRouter
     {
         http_response_code(404);
         echo '<!DOCTYPE html>';
-        echo '<html><head><title>Page Not Found</title></head>';
-        echo '<body><h1>404 - Page Not Found</h1>';
-        echo '<p>The requested page could not be found.</p>';
-        echo '<p><a href="' . $this->generateUrl('/') . '">Return to Home</a></p>';
-        echo '</body></html>';
+        echo '<html><head>';
+        echo '<title>Page Not Found</title>';
+        echo '<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">';
+        echo '</head>';
+        echo '<body class="bg-light">';
+        echo '<div class="container mt-5">';
+        echo '<div class="row justify-content-center">';
+        echo '<div class="col-md-6 text-center">';
+        echo '<h1 class="mb-4">404 - Page Not Found</h1>';
+        echo '<p class="mb-4">The requested page could not be found.</p>';
+        echo '<a href="/" class="btn btn-primary">Return to Home</a>';
+        echo '</div></div></div>';
+        echo '</body></html>';}
     }
     
     /**
