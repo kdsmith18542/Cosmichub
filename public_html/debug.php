@@ -51,10 +51,24 @@ if (file_exists($appRoot . '/bootstrap.php')) {
                 echo "✓ PDO SQLite driver is available<br>";
             } else {
                 echo "✗ PDO SQLite driver is NOT available<br>";
-                echo "<strong>SOLUTION FOR EC2:</strong><br>";
-                echo "Run: sudo yum install php-pdo (Amazon Linux)<br>";
-                echo "Or: sudo apt-get install php-sqlite3 (Ubuntu)<br>";
-                echo "Then restart web server: sudo systemctl restart httpd/nginx<br>";
+                echo "<h3>🔧 Solution for Ubuntu 24 on EC2:</h3>";
+                echo "<pre>";
+                echo "sudo apt update\n";
+                echo "sudo apt install php-pdo php-sqlite3\n";
+                echo "sudo systemctl restart apache2  # For Apache\n";
+                echo "# OR\n";
+                echo "sudo systemctl restart nginx    # For Nginx\n";
+                echo "\n# Verify installation:\n";
+                echo "php -m | grep -i pdo\n";
+                echo "php -m | grep -i sqlite\n";
+                echo "</pre>";
+                
+                echo "<h3>🔧 Alternative for older Ubuntu versions:</h3>";
+                echo "<pre>";
+                echo "sudo apt-get update\n";
+                echo "sudo apt-get install php-pdo php-sqlite3\n";
+                echo "sudo systemctl restart apache2\n";
+                echo "</pre>";
             }
         } else {
             echo "✗ PDO class is NOT available<br>";
