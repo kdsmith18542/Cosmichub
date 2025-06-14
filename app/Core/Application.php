@@ -206,9 +206,7 @@ class Application
         $this->register($loggingProvider);
 
         foreach ($this->coreServiceProviders as $provider) {
-            var_dump("Attempting to register core service provider: " . $provider);
             $this->register($provider);
-            var_dump("Finished registering core service provider: " . $provider);
         }
     }
     
