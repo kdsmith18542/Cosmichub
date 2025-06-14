@@ -8,10 +8,17 @@
         "ext-mbstring": "*",
         "ext-pdo": "*",
         "google-gemini-php/client": "^2.3",
+        "monolog/monolog": "^2.0",
         "nyholm/psr7": "^1.8",
+        "psr/event-dispatcher": "^1.0",
         "psr/http-client": "^1.0",
         "symfony/http-client": "^7.3",
-        "tecnickcom/tcpdf": "^6.6"
+        "tecnickcom/tcpdf": "^6.6",
+        "twig/twig": "^3.21"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^9.6",
+        "mockery/mockery": "^1.5"
     },
     "autoload": {
         "psr-4": {
@@ -25,6 +32,10 @@
         "allow-plugins": {
             "php-http/discovery": true
         }
+    },
+    "scripts": {
+        "test": "phpunit",
+        "test-coverage": "phpunit --coverage-html coverage"
     },
     "minimum-stability": "dev",
     "prefer-stable": true

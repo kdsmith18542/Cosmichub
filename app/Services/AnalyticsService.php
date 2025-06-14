@@ -8,15 +8,19 @@
 
 namespace App\Services;
 
-use App\Libraries\Database;
+use App\Repositories\AnalyticsRepository;
+use App\Core\Service\BaseService;
 use Exception;
+use Psr\Log\LoggerInterface;
 
-class AnalyticsService {
+class AnalyticsService extends BaseService {
     
-    private $db;
+    private $analyticsRepository;
+    private $logger;
     
-    public function __construct() {
-        $this->db = Database::getInstance();
+    public function __construct(AnalyticsRepository $analyticsRepository, LoggerInterface $logger) {
+        $this->analyticsRepository = $analyticsRepository;
+        $this->logger = $logger;
     }
     
     /**
@@ -24,25 +28,9 @@ class AnalyticsService {
      */
     public function trackEvent($userId, $eventType, $eventData = [], $metadata = []) {
         try {
-            $stmt = $this->db->prepare("
-                INSERT INTO analytics_events 
-                (user_id, event_type, event_data, metadata, ip_address, user_agent, created_at) 
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-            ");
-            
-            $stmt->execute([
-                $userId,
-                $eventType,
-                json_encode($eventData),
-                json_encode($metadata),
-                $_SERVER['REMOTE_ADDR'] ?? null,
-                $_SERVER['HTTP_USER_AGENT'] ?? null,
-                date('Y-m-d H:i:s')
-            ]);
-            
-            return true;
+            return $this->analyticsRepository->trackEvent($userId, $eventType, $eventData, $metadata);
         } catch (Exception $e) {
-            error_log('Analytics tracking error: ' . $e->getMessage());
+            $this->logger->error('Analytics tracking error: ' . $e->getMessage());
             return false;
         }
     }
@@ -113,39 +101,12 @@ class AnalyticsService {
         try {
             $startDate = date('Y-m-d H:i:s', strtotime("-{$dateRange}"));
             
-            // Get total events
-            $totalEvents = $this->db->query(
-                "SELECT COUNT(*) as count FROM analytics_events WHERE created_at >= ?",
-                [$startDate]
-            )->fetch()['count'];
-            
-            // Get unique users
-            $uniqueUsers = $this->db->query(
-                "SELECT COUNT(DISTINCT user_id) as count FROM analytics_events WHERE created_at >= ?",
-                [$startDate]
-            )->fetch()['count'];
-            
-            // Get top features
-            $topFeatures = $this->db->query("
-                SELECT JSON_EXTRACT(event_data, '$.feature') as feature, COUNT(*) as usage_count
-                FROM analytics_events 
-                WHERE event_type = 'feature_usage' AND created_at >= ?
-                GROUP BY JSON_EXTRACT(event_data, '$.feature')
-                ORDER BY usage_count DESC
-                LIMIT 10
-            ", [$startDate])->fetchAll();
-            
-            // Get conversion rates
-            $conversions = $this->db->query(
-                "SELECT COUNT(*) as count FROM analytics_events WHERE event_type = 'conversion' AND created_at >= ?",
-                [$startDate]
-            )->fetch()['count'];
-            
-            // Get error rates
-            $errors = $this->db->query(
-                "SELECT COUNT(*) as count FROM analytics_events WHERE event_type = 'error' AND created_at >= ?",
-                [$startDate]
-            )->fetch()['count'];
+            // Get metrics using repository methods
+            $totalEvents = $this->analyticsRepository->getTotalEventsCount($startDate);
+            $uniqueUsers = $this->analyticsRepository->getUniqueUsersCount($startDate);
+            $topFeatures = $this->analyticsRepository->getTopFeatures($startDate, 10);
+            $conversions = $this->analyticsRepository->getConversionsCount($startDate);
+            $errors = $this->analyticsRepository->getErrorsCount($startDate);
             
             return [
                 'total_events' => $totalEvents,
@@ -157,7 +118,7 @@ class AnalyticsService {
                 'error_rate' => $totalEvents > 0 ? round(($errors / $totalEvents) * 100, 2) : 0
             ];
         } catch (Exception $e) {
-            error_log('Analytics dashboard error: ' . $e->getMessage());
+            $this->logger->error('Analytics dashboard error: ' . $e->getMessage());
             return [];
         }
     }
@@ -169,46 +130,30 @@ class AnalyticsService {
         try {
             $startDate = date('Y-m-d H:i:s', strtotime("-{$dateRange}"));
             
-            // Get user's most used features
-            $topFeatures = $this->db->query("
-                SELECT JSON_EXTRACT(event_data, '$.feature') as feature, COUNT(*) as usage_count
-                FROM analytics_events 
-                WHERE user_id = ? AND event_type = 'feature_usage' AND created_at >= ?
-                GROUP BY JSON_EXTRACT(event_data, '$.feature')
-                ORDER BY usage_count DESC
-                LIMIT 5
-            ", [$userId, $startDate])->fetchAll();
-            
-            // Get session patterns
-            $sessionData = $this->db->query("
-                SELECT 
-                    AVG(CAST(JSON_EXTRACT(event_data, '$.session_duration') AS DECIMAL)) as avg_session_duration,
-                    AVG(CAST(JSON_EXTRACT(event_data, '$.pages_viewed') AS DECIMAL)) as avg_pages_per_session,
-                    COUNT(*) as total_sessions
-                FROM analytics_events 
-                WHERE user_id = ? AND event_type = 'engagement' AND created_at >= ?
-            ", [$userId, $startDate])->fetch();
+            // Get user insights using repository methods
+            $topFeatures = $this->analyticsRepository->getUserTopFeatures($userId, $startDate, 5);
+            $sessionData = $this->analyticsRepository->getUserSessionData($userId, $startDate);
             
             return [
                 'top_features' => $topFeatures,
                 'session_data' => $sessionData
             ];
         } catch (Exception $e) {
-            error_log('User behavior insights error: ' . $e->getMessage());
+            $this->logger->error('User behavior insights error: ' . $e->getMessage());
             return [];
         }
     }
     
     /**
-     * Track A/B test participation
+     * Track A/B test results
      */
     public function trackABTest($userId, $testName, $variant, $outcome = null) {
-        return $this->trackEvent($userId, 'ab_test', [
-            'test_name' => $testName,
-            'variant' => $variant,
-            'outcome' => $outcome,
-            'timestamp' => time()
-        ]);
+        try {
+            return $this->analyticsRepository->trackABTest($userId, $testName, $variant, $outcome);
+        } catch (Exception $e) {
+            $this->logger->error('A/B test tracking error: ' . $e->getMessage());
+            return false;
+        }
     }
     
     /**
@@ -218,32 +163,16 @@ class AnalyticsService {
         try {
             $startDate = date('Y-m-d H:i:s', strtotime("-{$dateRange}"));
             
-            // Get page load times (if tracked)
-            $pageLoadTimes = $this->db->query("
-                SELECT 
-                    JSON_EXTRACT(metadata, '$.page_load_time') as load_time,
-                    JSON_EXTRACT(event_data, '$.page') as page
-                FROM analytics_events 
-                WHERE event_type = 'page_view' 
-                AND JSON_EXTRACT(metadata, '$.page_load_time') IS NOT NULL
-                AND created_at >= ?
-                ORDER BY created_at DESC
-                LIMIT 100
-            ", [$startDate])->fetchAll();
-            
-            // Calculate average load time
-            $avgLoadTime = 0;
-            if (!empty($pageLoadTimes)) {
-                $totalTime = array_sum(array_column($pageLoadTimes, 'load_time'));
-                $avgLoadTime = $totalTime / count($pageLoadTimes);
-            }
+            // Get performance metrics using repository methods
+            $pageLoadTimes = $this->analyticsRepository->getPageLoadTimes($startDate);
+            $errorRates = $this->analyticsRepository->getErrorRatesByType($startDate);
             
             return [
-                'avg_page_load_time' => round($avgLoadTime, 2),
-                'total_page_views' => count($pageLoadTimes)
+                'page_load_times' => $pageLoadTimes,
+                'error_rates' => $errorRates
             ];
         } catch (Exception $e) {
-            error_log('Performance metrics error: ' . $e->getMessage());
+            $this->logger->error('Performance metrics error: ' . $e->getMessage());
             return [];
         }
     }

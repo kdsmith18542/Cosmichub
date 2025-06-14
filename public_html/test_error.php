@@ -15,18 +15,9 @@ try {
     echo "<p>Document Root: " . htmlspecialchars($documentRoot) . "</p>";
     echo "<p>App Root: " . htmlspecialchars($appRoot) . "</p>";
     
-    // Check if bootstrap.php exists
-    $bootstrapPath = $appRoot . '/bootstrap.php';
-    echo "<p>Bootstrap Path: " . htmlspecialchars($bootstrapPath) . "</p>";
-    
-    if (!file_exists($bootstrapPath)) {
-        throw new Exception("Bootstrap file not found at: " . $bootstrapPath);
-    }
-    
-    echo "<p>Bootstrap file exists. Attempting to include...</p>";
-    
-    // Include bootstrap
-    require_once $bootstrapPath;
+    // Bootstrap the application using the new app.php
+    $app = require $appRoot . '/bootstrap/app.php';
+    echo "<p style='color: green;'>✓ Application bootstrapped successfully!</p>";
     
     echo "<p style='color: green;'>✓ Bootstrap loaded successfully!</p>";
     
@@ -41,12 +32,18 @@ try {
         }
     }
     
-    // Test database connection
+    // Test database connection via container
     echo "<h2>Database Test:</h2>";
-    if (isset($GLOBALS['db']) && $GLOBALS['db'] instanceof PDO) {
-        echo "<p style='color: green;'>✓ Database connection established</p>";
-    } else {
-        echo "<p style='color: red;'>✗ Database connection failed</p>";
+    try {
+        $db = $app->getContainer()->make('db');
+        if ($db instanceof PDO) {
+            echo "<p style='color: green;'>✓ Database connection established via container</p>";
+        } else {
+            echo "<p style='color: red;'>✗ Database connection failed via container (not PDO instance)</p>";
+        }
+    } catch (Exception $e) {
+        echo "<p style='color: red;'>✗ Database connection failed via container: " . htmlspecialchars($e->getMessage()) . "</p>";
+    }
     }
     
     // Test router creation

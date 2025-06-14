@@ -88,6 +88,56 @@ out/
 .env.test.local
 .env.production.local
 
+# PHPMailer (if not managed by Composer)
+/PHPMailer-6.9.1/
+/PHPMailer/
+
+# Documentation and Development Files
+AWS_UBUNTU_DEPLOYMENT.md
+FRAMEWORK_README.md
+HOSTING_UPLOAD_INSTRUCTIONS.md
+PHP_ROUTING_DEPLOYMENT_GUIDE.md
+PROJECT_COMPLETION_STATUS.md
+REFACTORING_MIGRATION_GUIDE.md
+REFACTORING_PLAN.md
+SERVICE_LAYER_REFACTORING_SUMMARY.md
+SHARED_HOSTING_DEPLOYMENT.md
+WAMP_SETUP_GUIDE.md
+projectblueprint.txt
+
+# Debug and Test Files (individual)
+debug_bootstrap.php
+debug_detailed.php
+debug_test.php
+minimal_test.php
+test_alias_order.php
+test_app.php
+test_bootstrap.php
+test_bootstrap_detailed.php
+test_bootstrap_minimal.php
+test_bootstrap_only.php
+test_bootstrap_simple.php
+test_config.php
+test_config_direct.php
+test_container.php
+test_controller.php
+test_database_config.php
+test_enhanced_bootstrap.php
+test_env_loading.php
+test_error_display.php
+test_events.php
+test_helpers.php
+test_middleware.php
+test_minimal_bootstrap.php
+test_php_config.php
+test_rarity_controller.php
+test_response.php
+test_validation_system.php
+
+# Logs and Temporary Directories
+tcosmicCosmichubstoragelogs
+/var/
+
 # Temporary files
 *.tmp
 *.temp

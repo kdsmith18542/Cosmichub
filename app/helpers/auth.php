@@ -12,7 +12,15 @@ if (!function_exists('is_logged_in')) {
      * @return bool True if user is logged in, false otherwise
      */
     function is_logged_in() {
-        return isset($_SESSION['user_id']);
+        try {
+            $app = \App\Core\Application::getInstance();
+            $authService = $app->make('AuthService');
+            $request = $app->make('request');
+            return $authService->isLoggedIn($request);
+        } catch (\Exception $e) {
+            // Fallback to session check for backward compatibility
+            return isset($_SESSION['user_id']);
+        }
     }
 }
 
@@ -24,10 +32,22 @@ if (!function_exists('require_login')) {
      * @return void
      */
     function require_login($redirect = '/login') {
-        if (!is_logged_in()) {
-            $_SESSION['redirect_after_login'] = $_SERVER['REQUEST_URI'];
-            header('Location: ' . $redirect);
-            exit;
+        try {
+            $app = \App\Core\Application::getInstance();
+            $authService = $app->make('AuthService');
+            $request = $app->make('request');
+            $response = $authService->requireLogin($request, $redirect);
+            if ($response) {
+                header('Location: ' . $redirect);
+                exit;
+            }
+        } catch (\Exception $e) {
+            // Fallback to legacy implementation
+            if (!is_logged_in()) {
+                $_SESSION['redirect_after_login'] = $_SERVER['REQUEST_URI'];
+                header('Location: ' . $redirect);
+                exit;
+            }
         }
     }
 }
@@ -40,9 +60,21 @@ if (!function_exists('require_guest')) {
      * @return void
      */
     function require_guest($redirect = '/dashboard') {
-        if (is_logged_in()) {
-            header('Location: ' . $redirect);
-            exit;
+        try {
+            $app = \App\Core\Application::getInstance();
+            $authService = $app->make('AuthService');
+            $request = $app->make('request');
+            $response = $authService->requireGuest($request, $redirect);
+            if ($response) {
+                header('Location: ' . $redirect);
+                exit;
+            }
+        } catch (\Exception $e) {
+            // Fallback to legacy implementation
+            if (is_logged_in()) {
+                header('Location: ' . $redirect);
+                exit;
+            }
         }
     }
 }
@@ -80,7 +112,16 @@ if (!function_exists('get_current_user_id')) {
      * @return int|null User ID or null if not logged in
      */
     function get_current_user_id() {
-        return $_SESSION['user_id'] ?? null;
+        try {
+            $app = \App\Core\Application::getInstance();
+            $authService = $app->make('AuthService');
+            $request = $app->make('request');
+            $user = $authService->getCurrentUser($request);
+            return $user ? $user->id : null;
+        } catch (\Exception $e) {
+            // Fallback to session check for backward compatibility
+            return $_SESSION['user_id'] ?? null;
+        }
     }
 }
 
@@ -91,16 +132,27 @@ if (!function_exists('get_current_user')) {
      * @return array|null User data or null if not logged in
      */
     function get_current_user() {
-        if (!is_logged_in()) {
-            return null;
+        try {
+            $app = \App\Core\Application::getInstance();
+            $authService = $app->make('AuthService');
+            $request = $app->make('request');
+            if (!$authService->isLoggedIn($request)) {
+                return null;
+            }
+            return $authService->getUserData($request);
+        } catch (\Exception $e) {
+            // Fallback to legacy implementation
+            if (!is_logged_in()) {
+                return null;
+            }
+            
+            return [
+                'id' => $_SESSION['user_id'] ?? null,
+                'name' => $_SESSION['user_name'] ?? null,
+                'email' => $_SESSION['user_email'] ?? null,
+                'role' => $_SESSION['user_role'] ?? 'user'
+            ];
         }
-        
-        return [
-            'id' => $_SESSION['user_id'] ?? null,
-            'name' => $_SESSION['user_name'] ?? null,
-            'email' => $_SESSION['user_email'] ?? null,
-            'role' => $_SESSION['user_role'] ?? 'user'
-        ];
     }
 }
 
@@ -112,14 +164,22 @@ if (!function_exists('set_auth_session')) {
      * @return void
      */
     function set_auth_session($user) {
-        $_SESSION['user_id'] = $user['id'];
-        $_SESSION['user_name'] = $user['name'] ?? '';
-        $_SESSION['user_email'] = $user['email'];
-        $_SESSION['user_role'] = $user['role'] ?? 'user';
-        $_SESSION['last_activity'] = time();
-        
-        // Regenerate session ID for security
-        session_regenerate_id(true);
+        try {
+            $app = \App\Core\Application::getInstance();
+            $authService = $app->make('AuthService');
+            $request = $app->make('request');
+            $authService->login($request, $user);
+        } catch (\Exception $e) {
+            // Fallback to legacy implementation
+            $_SESSION['user_id'] = $user['id'];
+            $_SESSION['user_name'] = $user['name'] ?? '';
+            $_SESSION['user_email'] = $user['email'];
+            $_SESSION['user_role'] = $user['role'] ?? 'user';
+            $_SESSION['last_activity'] = time();
+            
+            // Regenerate session ID for security
+            session_regenerate_id(true);
+        }
     }
 }
 
@@ -130,12 +190,20 @@ if (!function_exists('clear_auth_session')) {
      * @return void
      */
     function clear_auth_session() {
-        unset(
-            $_SESSION['user_id'],
-            $_SESSION['user_name'],
-            $_SESSION['user_email'],
-            $_SESSION['user_role'],
-            $_SESSION['last_activity']
-        );
+        try {
+            $app = \App\Core\Application::getInstance();
+            $authService = $app->make('AuthService');
+            $request = $app->make('request');
+            $authService->logout($request);
+        } catch (\Exception $e) {
+            // Fallback to legacy implementation
+            unset(
+                $_SESSION['user_id'],
+                $_SESSION['user_name'],
+                $_SESSION['user_email'],
+                $_SESSION['user_role'],
+                $_SESSION['last_activity']
+            );
+        }
     }
 }

@@ -4,13 +4,25 @@ namespace App\Controllers;
 
 use PDO;
 use Exception;
-use App\Libraries\Controller;
-use App\Models\User;
-use App\Models\UserToken;
+use App\Core\Controller\Controller;
+use App\Core\Http\Request;
+use App\Core\Http\Response;
+use App\Services\UserService;
 use App\Services\EmailService;
+use App\Core\Auth\Auth;
+use App\Core\Session\Session;
 
 class EmailVerificationController extends Controller
 {
+    private UserService $userService;
+    private EmailService $emailService;
+    
+    public function __construct()
+    {
+        parent::__construct();
+        $this->userService = $this->resolve(UserService::class);
+        $this->emailService = $this->resolve(EmailService::class);
+    }
     /**
      * Show the email verification notice
      */
@@ -21,7 +33,7 @@ class EmailVerificationController extends Controller
             return redirect('/login');
         }
 
-        $user = User::findById(Auth::get_current_user_id());
+        $user = $this->userService->getUserById(Auth::get_current_user_id());
 
         if (!$user) {
             Session::setFlash('error', 'User not found. Please log in again.');
@@ -59,7 +71,7 @@ class EmailVerificationController extends Controller
             return redirect('/login');
         }
 
-        $user = User::findById((int)$userId);
+        $user = $this->userService->getUserById((int)$userId);
 
         if (!$user) {
             Session::setFlash('error', 'Invalid verification link. User not found.');
@@ -107,7 +119,7 @@ class EmailVerificationController extends Controller
             }
             $email = $request->input('email');
         } elseif (Auth::is_logged_in()) {
-            $currentUser = User::findById(Auth::get_current_user_id());
+            $currentUser = $this->userService->getUserById(Auth::get_current_user_id());
             if ($currentUser) $email = $currentUser->email;
         }
 
@@ -116,7 +128,7 @@ class EmailVerificationController extends Controller
             return redirect('/email/verify/resend');
         }
 
-        $user = User::findByEmail($email);
+        $user = $this->userService->getUserByEmail($email);
 
         if (!$user) {
             // To prevent user enumeration, show a generic message
@@ -130,8 +142,8 @@ class EmailVerificationController extends Controller
             return redirect(Auth::is_logged_in() ? '/dashboard' : '/login');
         }
 
-        $emailService = new EmailService();
-        $sendResult = $emailService->sendVerificationEmail($user);
+        // Send verification email
+        $sendResult = $this->emailService->sendVerificationEmail($user);
 
         if ($sendResult['success']) {
             Session::setFlash('success', $sendResult['message']);
@@ -152,7 +164,7 @@ class EmailVerificationController extends Controller
     {
         $email = $request ? $request->input('email', '') : '';
         if (empty($email) && Auth::is_logged_in()) {
-            $currentUser = User::findById(Auth::get_current_user_id());
+            $currentUser = $this->userService->getUserById(Auth::get_current_user_id());
             if ($currentUser && !$currentUser->hasVerifiedEmail()) {
                 $email = $currentUser->email;
             }

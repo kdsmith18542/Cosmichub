@@ -4,17 +4,18 @@
  * 
  * Handles all database operations for the subscriptions table.
  */
+namespace App\Models;
 
-class Subscription extends Model {
+use App\Core\Database\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+
+class Subscription extends Model
+{
     /**
      * @var string The database table name
      */
-    protected static $table = 'subscriptions';
-    
-    /**
-     * @var string The primary key for the table
-     */
-    protected static $primaryKey = 'id';
+
     
     /**
      * @var array The model's fillable attributes
@@ -65,8 +66,9 @@ class Subscription extends Model {
      * 
      * @return User|null
      */
-    public function user() {
-        return User::find($this->user_id);
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
     }
     
     /**
@@ -74,8 +76,9 @@ class Subscription extends Model {
      * 
      * @return Plan|null
      */
-    public function plan() {
-        return Plan::find($this->plan_id);
+    public function plan(): BelongsTo
+    {
+        return $this->belongsTo(Plan::class);
     }
     
     /**
@@ -83,8 +86,9 @@ class Subscription extends Model {
      * 
      * @return array
      */
-    public function items() {
-        return SubscriptionItem::where('subscription_id', '=', $this->id)->get();
+    public function items(): HasMany
+    {
+        return $this->hasMany(SubscriptionItem::class);
     }
     
     /**
@@ -92,9 +96,10 @@ class Subscription extends Model {
      * 
      * @return bool
      */
-    public function isActive() {
-        return $this->status === self::STATUS_ACTIVE && 
-               $this->ends_at > date('Y-m-d H:i:s');
+    public function isActive(): bool
+    {
+        return $this->status === static::STATUS_ACTIVE &&
+               (strtotime($this->ends_at) > time());
     }
     
     /**
@@ -102,8 +107,9 @@ class Subscription extends Model {
      * 
      * @return bool
      */
-    public function isCanceled() {
-        return $this->status === self::STATUS_CANCELED || $this->canceled_at !== null;
+    public function isCanceled(): bool
+    {
+        return $this->status === static::STATUS_CANCELED || $this->canceled_at !== null;
     }
     
     /**
@@ -111,8 +117,9 @@ class Subscription extends Model {
      * 
      * @return bool
      */
-    public function isPastDue() {
-        return $this->status === self::STATUS_PAST_DUE;
+    public function isPastDue(): bool
+    {
+        return $this->status === static::STATUS_PAST_DUE;
     }
     
     /**
@@ -120,8 +127,10 @@ class Subscription extends Model {
      * 
      * @return bool
      */
-    public function onTrial() {
-        return $this->status === self::STATUS_TRIALING && $this->trial_ends_at > date('Y-m-d H:i:s');
+    public function onTrial(): bool
+    {
+        return $this->status === static::STATUS_TRIALING &&
+               (strtotime($this->trial_ends_at) > time());
     }
     
     /**
@@ -130,18 +139,21 @@ class Subscription extends Model {
      * @param bool $atPeriodEnd Whether to cancel at the end of the billing period
      * @return bool
      */
-    public function cancel($atPeriodEnd = true) {
+    public function cancel(bool $atPeriodEnd = true): bool
+    {
         if ($atPeriodEnd) {
             // Mark as canceled but let it run until the end of the period
-            $this->status = self::STATUS_ACTIVE;
+            // The status remains active until ends_at is reached.
+            // Stripe handles this by setting cancel_at_period_end = true on their end.
+            // We just record the canceled_at timestamp.
             $this->canceled_at = date('Y-m-d H:i:s');
         } else {
             // Cancel immediately
-            $this->status = self::STATUS_CANCELED;
+            $this->status = static::STATUS_CANCELED;
             $this->canceled_at = date('Y-m-d H:i:s');
             $this->ends_at = date('Y-m-d H:i:s');
         }
-        
+
         return $this->save();
     }
     
@@ -150,17 +162,25 @@ class Subscription extends Model {
      * 
      * @return bool
      */
-    public function resume() {
-        if (!$this->isCanceled()) {
+    public function resume(): bool
+    {
+        if (!$this->isCanceled() && $this->status !== static::STATUS_CANCELED) {
+            // Can only resume if it was actually canceled and not just marked for cancellation at period end
             return false;
         }
-        
-        $this->status = self::STATUS_ACTIVE;
+
+        // To truly resume, Stripe API would be called to uncancel.
+        // For local state, we revert the cancellation markers.
+        $this->status = static::STATUS_ACTIVE;
         $this->canceled_at = null;
-        
-        // Set a new end date (e.g., 1 month from now)
-        $this->ends_at = date('Y-m-d H:i:s', strtotime('+1 month'));
-        
+
+        // If ends_at was set to now() due to immediate cancellation, it needs to be restored.
+        // This typically involves fetching the original period end from Stripe or recalculating based on plan.
+        // For simplicity, let's assume it's extended by a month from now if it was in the past.
+        if (strtotime($this->ends_at) < time()) {
+            $this->ends_at = date('Y-m-d H:i:s', strtotime('+1 month'));
+        }
+
         return $this->save();
     }
     
@@ -169,9 +189,10 @@ class Subscription extends Model {
      * 
      * @return string
      */
-    public function getStatusName() {
-        $statuses = self::getStatuses();
-        return $statuses[$this->status] ?? ucfirst($this->status);
+    public function getStatusName(): string
+    {
+        $statuses = static::getStatuses();
+        return $statuses[$this->status] ?? ucfirst((string) $this->status);
     }
     
     /**
@@ -179,16 +200,18 @@ class Subscription extends Model {
      * 
      * @return array
      */
-    public static function getStatuses() {
+    public static function getStatuses(): array
+    {
         return [
-            self::STATUS_ACTIVE => 'Active',
-            self::STATUS_CANCELED => 'Canceled',
-            self::STATUS_EXPIRED => 'Expired',
-            self::STATUS_PAST_DUE => 'Past Due',
-            self::STATUS_UNPAID => 'Unpaid',
-            self::STATUS_INCOMPLETE => 'Incomplete',
-            self::STATUS_INCOMPLETE_EXPIRED => 'Incomplete Expired',
-            self::STATUS_TRIALING => 'Trialing'
+            static::STATUS_ACTIVE => 'Active',
+            static::STATUS_CANCELED => 'Canceled',
+            static::STATUS_EXPIRED => 'Expired',
+            static::STATUS_PAST_DUE => 'Past Due',
+            static::STATUS_UNPAID => 'Unpaid',
+            static::STATUS_INCOMPLETE => 'Incomplete',
+            static::STATUS_INCOMPLETE_EXPIRED => 'Incomplete Expired',
+            static::STATUS_TRIALING => 'Trialing',
+            static::STATUS_DELETED => 'Deleted',
         ];
     }
     

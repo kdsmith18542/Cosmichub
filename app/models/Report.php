@@ -7,17 +7,10 @@
 
 namespace App\Models;
 
-class Report extends Model {
-    /**
-     * @var string The database table name
-     */
-    protected static $table = 'reports';
-    
-    /**
-     * @var string The primary key for the table
-     */
-    protected static $primaryKey = 'id';
-    
+class Report extends \App\Core\Database\Model {
+    // The table name 'reports' and primary key 'id' will be inferred by the base Model.
+    // Timestamps (created_at, updated_at) are handled by the base Model by default.
+
     /**
      * @var array The model's fillable attributes
      */
@@ -42,10 +35,13 @@ class Report extends Model {
      * @var array
      */
     protected $casts = [
-        'birth_data' => 'array',
+        'birth_date' => 'datetime', // Assuming birth_date should be a datetime object
         'content' => 'array',
-        'created_at' => 'datetime',
-        'updated_at' => 'datetime',
+        'summary' => 'string', // Ensure summary is treated as a string
+        'has_events' => 'boolean',
+        'has_births' => 'boolean',
+        'has_deaths' => 'boolean',
+        // created_at and updated_at are handled by the base Model and cast to Carbon instances
         'is_unlocked' => 'boolean'
     ];
     
@@ -69,7 +65,7 @@ class Report extends Model {
     /**
      * Get the user that owns the report.
      */
-    public function user()
+    public function user(): \App\Core\Database\Relations\BelongsTo
     {
         return $this->belongsTo(User::class, 'user_id');
     }
@@ -80,9 +76,9 @@ class Report extends Model {
      * @param int $userId
      * @return array
      */
-    public static function findAllByUserId(int $userId)
+    public static function findAllByUserId(int $userId): \App\Core\Database\Collection
     {
-        return static::where('user_id', $userId)->get();
+        return static::query()->where('user_id', $userId)->get();
     }
     
     /**
@@ -91,8 +87,9 @@ class Report extends Model {
      * @param int $userId
      * @return array
      */
-    public static function getForUser($userId) {
-        return self::where('user_id', '=', $userId)
+    public static function getForUser(int $userId): \App\Core\Database\Collection
+    {
+        return static::query()->where('user_id', $userId)
                  ->orderBy('created_at', 'desc')
                  ->get();
     }
@@ -103,8 +100,9 @@ class Report extends Model {
      * @param string $status
      * @return array
      */
-    public static function getByStatus($status) {
-        return self::where('status', '=', $status)
+    public static function getByStatus(string $status): \App\Core\Database\Collection
+    {
+        return static::query()->where('status', $status)
                  ->orderBy('created_at', 'asc')
                  ->get();
     }
@@ -114,8 +112,9 @@ class Report extends Model {
      * 
      * @return string
      */
-    public function getTypeName() {
-        $types = self::getTypes();
+    public function getTypeName(): string
+    {
+        $types = static::getTypes();
         return $types[$this->type] ?? ucfirst(str_replace('_', ' ', $this->type));
     }
     
@@ -124,8 +123,9 @@ class Report extends Model {
      * 
      * @return string
      */
-    public function getStatusName() {
-        $statuses = self::getStatuses();
+    public function getStatusName(): string
+    {
+        $statuses = static::getStatuses();
         return $statuses[$this->status] ?? ucfirst($this->status);
     }
     
@@ -134,13 +134,14 @@ class Report extends Model {
      * 
      * @return array
      */
-    public static function getTypes() {
+    public static function getTypes(): array
+    {
         return [
-            self::TYPE_BIRTH_CHART => 'Birth Chart',
-            self::TYPE_COMPATIBILITY => 'Compatibility',
-            self::TYPE_TRANSITS => 'Transits',
-            self::TYPE_SOLAR_RETURN => 'Solar Return',
-            self::TYPE_SYNASTRY => 'Synastry'
+            static::TYPE_BIRTH_CHART => 'Birth Chart',
+            static::TYPE_COMPATIBILITY => 'Compatibility',
+            static::TYPE_TRANSITS => 'Transits',
+            static::TYPE_SOLAR_RETURN => 'Solar Return',
+            static::TYPE_SYNASTRY => 'Synastry'
         ];
     }
     
@@ -149,12 +150,13 @@ class Report extends Model {
      * 
      * @return array
      */
-    public static function getStatuses() {
+    public static function getStatuses(): array
+    {
         return [
-            self::STATUS_PENDING => 'Pending',
-            self::STATUS_PROCESSING => 'Processing',
-            self::STATUS_COMPLETED => 'Completed',
-            self::STATUS_FAILED => 'Failed'
+            static::STATUS_PENDING => 'Pending',
+            static::STATUS_PROCESSING => 'Processing',
+            static::STATUS_COMPLETED => 'Completed',
+            static::STATUS_FAILED => 'Failed'
         ];
     }
     
@@ -163,8 +165,9 @@ class Report extends Model {
      * 
      * @return bool
      */
-    public function isPending() {
-        return $this->status === self::STATUS_PENDING;
+    public function isPending(): bool
+    {
+        return $this->status === static::STATUS_PENDING;
     }
     
     /**
@@ -172,8 +175,9 @@ class Report extends Model {
      * 
      * @return bool
      */
-    public function isProcessing() {
-        return $this->status === self::STATUS_PROCESSING;
+    public function isProcessing(): bool
+    {
+        return $this->status === static::STATUS_PROCESSING;
     }
     
     /**
@@ -181,8 +185,9 @@ class Report extends Model {
      * 
      * @return bool
      */
-    public function isCompleted() {
-        return $this->status === self::STATUS_COMPLETED;
+    public function isCompleted(): bool
+    {
+        return $this->status === static::STATUS_COMPLETED;
     }
     
     /**
@@ -190,8 +195,9 @@ class Report extends Model {
      * 
      * @return bool
      */
-    public function isFailed() {
-        return $this->status === self::STATUS_FAILED;
+    public function isFailed(): bool
+    {
+        return $this->status === static::STATUS_FAILED;
     }
     
     /**

@@ -2,22 +2,20 @@
 
 namespace App\Models;
 
-use PDO;
-use PDOException;
-use App\Libraries\Model;
-use App\Libraries\Database;
+use App\Core\Database\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class UserToken extends Model
 {
     /**
      * @var string The database table name
      */
-    protected static $table = 'user_tokens';
+    // protected static $table = 'user_tokens'; // Conventionally handled by base Model
     
     /**
      * @var string The primary key for the table
      */
-    protected static $primaryKey = 'id';
+    // protected static $primaryKey = 'id'; // Conventionally handled by base Model
     
     /**
      * @var array The model's fillable attributes
@@ -28,8 +26,8 @@ class UserToken extends Model
         'type',
         'expires_at',
         'used_at',
-        'created_at',
-        'updated_at'
+        // 'created_at', // Handled by timestamps
+        // 'updated_at'  // Handled by timestamps
     ];
     
     /**
@@ -38,20 +36,7 @@ class UserToken extends Model
     protected $casts = [
         'expires_at' => 'datetime',
         'used_at' => 'datetime',
-        'created_at' => 'datetime',
-        'updated_at' => 'datetime'
-    ];
-    
-    /**
-     * The attributes that should be mutated to dates
-     *
-     * @var array
-     */
-    protected $dates = [
-        'expires_at',
-        'used_at',
-        'created_at',
-        'updated_at'
+        // 'created_at' and 'updated_at' are handled by Eloquent's $timestamps property (true by default)
     ];
     
     /**
@@ -62,45 +47,36 @@ class UserToken extends Model
     protected $hidden = [
         'token'
     ];
+
+    /**
+     * Indicates if the model should be timestamped.
+     *
+     * @var bool
+     */
+    public $timestamps = true;
     
     /**
-     * Get a token by its value and type
+     * Get a token by its value and type.
      *
      * @param string $token
      * @param string $type
-     * @return UserToken|null
+     * @return static|null
      */
-    public static function findByToken(string $token, string $type)
+    public static function findByToken(string $token, string $type): ?static
     {
-        $db = static::getDb();
-        $stmt = $db->prepare("
-            SELECT * FROM " . static::$table . " 
-            WHERE token = :token 
-            AND type = :type 
-            AND (expires_at IS NULL OR expires_at > :now)
-            AND used_at IS NULL
-            LIMIT 1
-        ");
-        
-        $stmt->execute([
-            ':token' => $token,
-            ':type' => $type,
-            ':now' => date('Y-m-d H:i:s')
-        ]);
-        
-        $result = $stmt->fetch(PDO::FETCH_ASSOC);
-        
-        if ($result) {
-            $model = new static();
-            $model->fill($result);
-            return $model;
-        }
-        
-        return null;
+        return static::query()
+            ->where('token', $token)
+            ->where('type', $type)
+            ->where(function ($query) {
+                $query->whereNull('expires_at')
+                      ->orWhere('expires_at', '>', date('Y-m-d H:i:s'));
+            })
+            ->whereNull('used_at')
+            ->first();
     }
     
     /**
-     * Mark token as used
+     * Mark token as used.
      * 
      * @return bool
      */
@@ -111,7 +87,7 @@ class UserToken extends Model
     }
     
     /**
-     * Check if token is expired
+     * Check if token is expired.
      * 
      * @return bool
      */
@@ -125,16 +101,12 @@ class UserToken extends Model
     }
     
     /**
-     * Get the user that owns the token
+     * Get the user that owns the token.
      * 
-     * @return User|null
+     * @return BelongsTo
      */
-    public function user()
+    public function user(): BelongsTo
     {
-        if (!$this->user_id) {
-            return null;
-        }
-        
-        return User::find($this->user_id);
+        return $this->belongsTo(User::class);
     }
 }

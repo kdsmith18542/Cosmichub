@@ -5,17 +5,10 @@
  * Handles all database operations for the plans table.
  */
 
-class Plan extends Model {
-    /**
-     * @var string The database table name
-     */
-    protected static $table = 'plans';
-    
-    /**
-     * @var string The primary key for the table
-     */
-    protected static $primaryKey = 'id';
-    
+class Plan extends \App\Core\Database\Model {
+    // The table name 'plans' and primary key 'id' will be inferred by the base Model.
+    // Timestamps (created_at, updated_at) are handled by the base Model by default.
+
     /**
      * @var array The model's fillable attributes
      */
@@ -60,8 +53,9 @@ class Plan extends Model {
      * 
      * @return array
      */
-    public static function getActive() {
-        return self::where('is_active', '=', 1)->get();
+    public static function getActive(): \App\Core\Database\Collection
+    {
+        return static::query()->where('is_active', true)->get();
     }
     
     /**
@@ -70,9 +64,11 @@ class Plan extends Model {
      * @param string $billingCycle
      * @return array
      */
-    public static function getByBillingCycle($billingCycle) {
-        return self::where('billing_cycle', '=', $billingCycle)
-                 ->where('is_active', '=', 1)
+    public static function getByBillingCycle(string $billingCycle): \App\Core\Database\Collection
+    {
+        return static::query()
+                 ->where('billing_cycle', $billingCycle)
+                 ->where('is_active', true)
                  ->get();
     }
     
@@ -81,11 +77,11 @@ class Plan extends Model {
      * 
      * @return array
      */
-    public function getFeatures() {
-        if (is_string($this->features)) {
-            return json_decode($this->features, true) ?: [];
-        }
-        return (array) $this->features;
+    public function getFeatures(): array
+    {
+        // The 'features' attribute is automatically cast to an array by the base Model
+        // due to the $casts property.
+        return (array) $this->getAttribute('features');
     }
     
     /**
@@ -105,7 +101,8 @@ class Plan extends Model {
      * @param bool $withBillingCycle Whether to include the billing cycle
      * @return string
      */
-    public function getFormattedPrice($withBillingCycle = true) {
+    public function getFormattedPrice(bool $withBillingCycle = true): string
+    {
         $price = '$' . number_format($this->price, 2);
         
         if ($withBillingCycle) {
@@ -120,7 +117,8 @@ class Plan extends Model {
      * 
      * @return string
      */
-    public function getBillingCycleName() {
+    public function getBillingCycleName(): string
+    {
         $cycles = self::getBillingCycles();
         return $cycles[$this->billing_cycle] ?? ucfirst($this->billing_cycle);
     }
@@ -130,7 +128,8 @@ class Plan extends Model {
      * 
      * @return array
      */
-    public static function getBillingCycles() {
+    public static function getBillingCycles(): array
+    {
         return [
             self::BILLING_CYCLE_MONTHLY => 'Per Month',
             self::BILLING_CYCLE_QUARTERLY => 'Per Quarter',
@@ -143,7 +142,8 @@ class Plan extends Model {
      * 
      * @return array
      */
-    public function getSubscriptionInterval() {
+    public function getSubscriptionInterval(): array
+    {
         switch ($this->billing_cycle) {
             case self::BILLING_CYCLE_QUARTERLY:
                 return ['interval' => 'month', 'count' => 3];
@@ -160,7 +160,8 @@ class Plan extends Model {
      * 
      * @return int
      */
-    public function getTrialPeriodDays() {
+    public function getTrialPeriodDays(): int
+    {
         // Default trial period is 7 days
         return 7;
     }
@@ -170,7 +171,8 @@ class Plan extends Model {
      * 
      * @return int
      */
-    public function getCredits() {
+    public function getCredits(): int
+    {
         return (int) $this->credits;
     }
     
@@ -179,7 +181,8 @@ class Plan extends Model {
      * 
      * @return int
      */
-    public function getIncludedReports() {
+    public function getIncludedReports(): int
+    {
         // This could be customized based on plan features
         if ($this->hasFeature('unlimited_reports')) {
             return -1; // Unlimited
@@ -193,7 +196,8 @@ class Plan extends Model {
      * 
      * @return bool
      */
-    public function hasUnlimitedReports() {
+    public function hasUnlimitedReports(): bool
+    {
         return $this->getIncludedReports() === -1;
     }
     

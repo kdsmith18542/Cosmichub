@@ -7,38 +7,52 @@
 
 namespace App\Controllers;
 
-use App\Libraries\Controller;
-use App\Models\User;
-use App\Libraries\MailService;
+use App\Core\Controller\Controller;
+use App\Services\UserService;
+use App\Services\EmailService;
+use App\Services\UserTokenService;
+use App\Core\Request;
+use App\Core\Response;
 use Exception;
+use Psr\Log\LoggerInterface;
 
 class VerificationController extends Controller {
-    /** @var User */
-    private $userModel;
+    /** @var UserService */
+    private $userService;
     
-    /** @var MailService */
-    private $mailService;
+    /** @var EmailService */
+    private $emailService;
     
-    public function __construct() {
-        $this->userModel = new User();
-        $this->mailService = new MailService();
+    /** @var UserTokenService */
+    private $userTokenService;
+    /** @var LoggerInterface */
+    private $logger;
+    
+    public function __construct(LoggerInterface $logger) {
+        parent::__construct();
+        $this->userService = $this->resolve(UserService::class);
+        $this->emailService = $this->resolve(EmailService::class);
+        $this->userTokenService = $this->resolve(UserTokenService::class);
+        $this->logger = $logger;
     }
     
     /**
      * Show the verification notice page
      */
-    public function notice() {
+    public function notice(Request $request): Response {
         // Redirect if not logged in
-        $this->requireAuth('/login');
+        $userId = $request->getSession('user_id');
+        if (!$userId) {
+            $request->flash('error', 'Please log in to access this page.');
+            return $this->redirect('/login');
+        }
         
         // Get current user
-        $userId = $_SESSION['user_id'] ?? null;
-        $user = $userId ? $this->userModel->findById($userId) : null;
+        $user = $this->userService->getUserById($userId);
         
         // Redirect if already verified
         if ($user && $user->hasVerifiedEmail()) {
-            $this->redirect('/dashboard');
-            return;
+            return $this->redirect('/dashboard');
         }
         
         $data = [
@@ -47,7 +61,7 @@ class VerificationController extends Controller {
             'resendUrl' => '/email/verification-notification'
         ];
         
-        $this->view('auth/verify-email', $data);
+        return $this->view('auth/verify-email', $data);
     }
     
     /**
@@ -56,60 +70,63 @@ class VerificationController extends Controller {
      * @param string $id User ID
      * @param string $token Verification token
      */
-    public function verify($id, $token) {
+    public function verify(Request $request, $id, $token): Response {
         // Find the user
         $user = $this->userModel->findById($id);
         
         if (!$user) {
-            $this->setFlash('error', 'Invalid verification link.');
-            $this->redirect('/login');
-            return;
+            $request->flash('error', 'Invalid verification link.');
+            return $this->redirect('/login');
         }
         
         // Check if already verified
         if ($user->hasVerifiedEmail()) {
-            $this->setFlash('info', 'Your email has already been verified.');
-            $this->redirect('/dashboard');
-            return;
+            $request->flash('info', 'Your email has already been verified.');
+            return $this->redirect('/dashboard');
         }
         
         // Verify the token
         if ($user->verifyEmail($token)) {
-            $this->setFlash('success', 'Your email has been verified successfully!');
-            $this->redirect('/dashboard');
+            $request->flash('success', 'Your email has been verified successfully!');
+            return $this->redirect('/dashboard');
         } else {
-            $this->setFlash('error', 'Invalid or expired verification link.');
-            $this->redirect('/email/verify');
+            $request->flash('error', 'Invalid or expired verification link.');
+            return $this->redirect('/email/verify');
         }
     }
     
     /**
      * Resend the verification email
      */
-    public function resend() {
+    public function resend(Request $request): Response {
         // Require authentication
-        $this->requireAuth('/login');
+        $userId = $request->getSession('user_id');
+        if (!$userId) {
+            $request->flash('error', 'Please log in to access this page.');
+            return $this->redirect('/login');
+        }
         
         // Get current user
-        $userId = $_SESSION['user_id'] ?? null;
-        $user = $userId ? $this->userModel->findById($userId) : null;
+        $user = $this->userModel->findById($userId);
         
         if (!$user) {
-            $this->setFlash('error', 'User not found.');
-            $this->redirect('/login');
-            return;
+            $request->flash('error', 'User not found.');
+            return $this->redirect('/login');
         }
         
         // Check if already verified
         if ($user->hasVerifiedEmail()) {
-            $this->setFlash('info', 'Your email is already verified.');
-            $this->redirect('/dashboard');
-            return;
+            $request->flash('info', 'Your email is already verified.');
+            return $this->redirect('/dashboard');
         }
         
         try {
             // Generate and save new verification token
-            $token = $user->createEmailVerificationToken();
+            $token = $this->userTokenService->createEmailVerificationToken(
+                $user->id,
+                bin2hex(random_bytes(32)),
+                new \DateTime('+1 day')
+            );
             
             // Build verification URL
             $verificationUrl = url("/email/verify/{$user->id}/{$token}");
@@ -121,13 +138,13 @@ class VerificationController extends Controller {
                 $verificationUrl
             );
             
-            $this->setFlash('success', 'A fresh verification link has been sent to your email address.');
+            $request->flash('success', 'A fresh verification link has been sent to your email address.');
             
         } catch (Exception $e) {
-            error_log('Failed to send verification email: ' . $e->getMessage());
-            $this->setFlash('error', 'Failed to send verification email. Please try again later.');
+            $this->logger->error('Failed to send verification email: ' . $e->getMessage());
+            $request->flash('error', 'Failed to send verification email. Please try again later.');
         }
         
-        $this->redirect('/email/verify');
+        return $this->redirect('/email/verify');
     }
 }

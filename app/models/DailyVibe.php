@@ -2,7 +2,26 @@
 
 namespace App\Models;
 
+use Psr\Log\LoggerInterface;
+
 class DailyVibe extends Model {
+    /**
+     * The logger instance.
+     *
+     * @var LoggerInterface
+     */
+    protected $logger;
+
+    /**
+     * Constructor.
+     *
+     * @param LoggerInterface $logger
+     */
+    public function __construct(LoggerInterface $logger)
+    {
+        parent::__construct();
+        $this->logger = $logger;
+    }
     protected $table = 'daily_vibes';
     
     /**
@@ -18,7 +37,7 @@ class DailyVibe extends Model {
             
             return !empty($result) ? $result[0] : null;
         } catch (\Exception $e) {
-            error_log('Error getting today\'s vibe: ' . $e->getMessage());
+            $this->logger->error('Error getting today\'s vibe: ' . $e->getMessage(), ['exception' => $e]);
             return null;
         }
     }
@@ -47,7 +66,7 @@ class DailyVibe extends Model {
                 );
             }
         } catch (\Exception $e) {
-            error_log('Error saving daily vibe: ' . $e->getMessage());
+            $this->logger->error('Error saving daily vibe: ' . $e->getMessage(), ['exception' => $e]);
             return false;
         }
     }
@@ -66,7 +85,7 @@ class DailyVibe extends Model {
                 \PDO::FETCH_OBJ
             );
         } catch (\Exception $e) {
-            error_log('Error getting vibe history: ' . $e->getMessage());
+            $this->logger->error('Error getting vibe history: ' . $e->getMessage(), ['exception' => $e]);
             return [];
         }
     }
@@ -92,7 +111,7 @@ class DailyVibe extends Model {
             }
             return $streak;
         } catch (\Exception $e) {
-            error_log('Error calculating streak: ' . $e->getMessage());
+            $this->logger->error('Error calculating streak: ' . $e->getMessage(), ['exception' => $e]);
             return 0;
         }
     }

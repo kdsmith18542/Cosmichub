@@ -6,35 +6,59 @@
  */
 
 // Load required files
-require_once __DIR__ . '/../libraries/Controller.php';
-require_once __DIR__ . '/../models/DailyVibe.php';
-require_once __DIR__ . '/../models/User.php';
+// Removed: Using autoloading and new Core\Controller\Controller architecture
+// Removed: Using autoloading for models
+// - DailyVibe model
+// - User model
 
-use App\Models\DailyVibe as DailyVibeModel;
+use App\Core\Request;
+use App\Core\Response;
+use App\Services\DailyVibeService;
+use App\Services\UserService;
+use Psr\Log\LoggerInterface;
 
-class DailyVibeController extends \App\Libraries\Controller {
+class DailyVibeController extends \App\Core\Controller\Controller {
     /**
      * @var string Default layout file
      */
     protected $layout = 'layouts/main';
     
     /**
+     * @var DailyVibeService
+     */
+    protected $dailyVibeService;
+    
+    /**
+     * @var UserService
+     */
+    protected $userService;
+    
+    /**
+     * Constructor
+     */
+    protected $logger;
+
+    public function __construct($app, LoggerInterface $logger)
+    {
+        parent::__construct($app);
+        $this->dailyVibeService = $this->app->make('DailyVibeService');
+        $this->userService = $this->app->make('UserService');
+        $this->logger = $logger;
+    }
+    
+    /**
      * Show today's daily vibe or form to generate it
      */
-    public function index() {
+    public function index(Request $request): Response {
         // Require authentication
-        if (!isset($_SESSION['user_id'])) {
-            header('Location: /login?redirect=/daily-vibe');
-            exit;
+        $userId = $request->getSession('user_id');
+        if (!$userId) {
+            return $this->redirect('/login?redirect=/daily-vibe');
         }
-        
-        $userId = $_SESSION['user_id'];
-        $dailyVibe = new DailyVibeModel();
-        
         // Get today's vibe if it exists
-        $todaysVibe = $dailyVibe->getTodaysVibe($userId);
-        $vibeHistory = $dailyVibe->getVibeHistory($userId, 7);
-        $streakCount = $dailyVibe->getStreakCount($userId);
+        $todaysVibe = $this->dailyVibeService->getTodaysVibe($userId);
+        $vibeHistory = $this->dailyVibeService->getVibeHistory($userId, 7);
+        $streakCount = $this->dailyVibeService->getStreakCount($userId);
         $data = [
             'pageTitle' => 'Your Daily Cosmic Vibe',
             'todaysVibe' => $todaysVibe,
@@ -43,38 +67,33 @@ class DailyVibeController extends \App\Libraries\Controller {
             'streakCount' => $streakCount
         ];
         
-        $this->view('daily-vibe/index', $data);
+        return $this->view('daily-vibe/index', $data);
     }
     
     /**
      * Generate a new daily vibe for the user
      */
-    public function generate() {
+    public function generate(Request $request): Response {
         // Require authentication and POST request
-        if (!isset($_SESSION['user_id']) || $_SERVER['REQUEST_METHOD'] !== 'POST') {
-            $this->jsonResponse(['error' => 'Unauthorized'], 401);
-            return;
+        $userId = $request->getSession('user_id');
+        if (!$userId || !$request->isPost()) {
+            return $this->jsonResponse(['error' => 'Unauthorized'], 401);
         }
         
         // Validate CSRF token
-        if (!isset($_POST['csrf_token']) || $_POST['csrf_token'] !== $_SESSION['csrf_token']) {
-            $this->jsonResponse(['error' => 'Invalid request'], 400);
-            return;
+        $csrfToken = $request->input('csrf_token');
+        if (!$csrfToken || $csrfToken !== $request->getSession('csrf_token')) {
+            return $this->jsonResponse(['error' => 'Invalid request'], 400);
         }
-        
-        $userId = $_SESSION['user_id'];
-        $dailyVibe = new DailyVibeModel();
-        
         // Check if already generated today
-        $existingVibe = $dailyVibe->getTodaysVibe($userId);
+        $existingVibe = $this->dailyVibeService->getTodaysVibe($userId);
         if ($existingVibe) {
-            $this->jsonResponse([
+            return $this->jsonResponse([
                 'success' => true,
                 'vibe' => $existingVibe,
                 'message' => 'You\'ve already checked in today!',
                 'isNew' => false
             ]);
-            return;
         }
         
         try {
@@ -82,11 +101,11 @@ class DailyVibeController extends \App\Libraries\Controller {
             $vibeText = $this->generateVibeText($userId);
             
             // Save the vibe
-            $saved = $dailyVibe->saveVibe($userId, $vibeText);
+            $saved = $this->dailyVibeService->saveVibe($userId, $vibeText);
             
             if ($saved) {
-                $vibe = $dailyVibe->getTodaysVibe($userId);
-                $this->jsonResponse([
+                $vibe = $this->dailyVibeService->getTodaysVibe($userId);
+                return $this->jsonResponse([
                     'success' => true,
                     'vibe' => $vibe,
                     'message' => 'Your daily cosmic vibe is ready!',
@@ -94,10 +113,10 @@ class DailyVibeController extends \App\Libraries\Controller {
                 ]);
             } else {
                 throw new Exception('Failed to save daily vibe');
-            }
-        } catch (Exception $e) {
-            error_log('Error generating daily vibe: ' . $e->getMessage());
-            $this->jsonResponse(['error' => 'Failed to generate your daily vibe. Please try again.'], 500);
+        }
+    } catch (Exception $e) {
+        $this->logger->error('Error generating daily vibe: ' . $e->getMessage());
+            return $this->jsonResponse(['error' => 'Failed to generate your daily vibe. Please try again.'], 500);
         }
     }
     
@@ -106,7 +125,7 @@ class DailyVibeController extends \App\Libraries\Controller {
      */
     private function generateVibeText($userId) {
         // Get user's birth date for personalization
-        $user = (new \App\Models\User())->find($userId);
+        $user = $this->userService->getUserById($userId);
         $birthDate = $user->birth_date ?? null;
         
         // Get current moon phase and astrological data
@@ -332,24 +351,21 @@ class DailyVibeController extends \App\Libraries\Controller {
     /**
      * Get user's vibe history
      */
-    public function history() {
+    public function history(Request $request): Response {
         // Require authentication
-        if (!isset($_SESSION['user_id'])) {
-            header('Location: /login?redirect=/daily-vibe/history');
-            exit;
+        $userId = $request->getSession('user_id');
+        if (!$userId) {
+            return $this->redirect('/login?redirect=/daily-vibe/history');
         }
         
-        $userId = $_SESSION['user_id'];
-        $dailyVibe = new DailyVibeModel();
-        
         // Get vibe history (last 30 days)
-        $vibeHistory = $dailyVibe->getVibeHistory($userId, 30);
+        $vibeHistory = $this->dailyVibeService->getVibeHistory($userId, 30);
         
         $data = [
             'pageTitle' => 'Your Vibe History',
             'vibeHistory' => $vibeHistory
         ];
         
-        $this->view('daily-vibe/history', $data);
+        return $this->view('daily-vibe/history', $data);
     }
 }

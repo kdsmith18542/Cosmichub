@@ -12,19 +12,32 @@ if (!function_exists('config')) {
      * @return mixed
      */
     function config($key, $default = null) {
-        global $config;
-        
-        $keys = explode('.', $key);
-        $value = $config;
-        
-        foreach ($keys as $k) {
-            if (!isset($value[$k])) {
-                return $default;
+        try {
+            // Try to get config from application container first
+            $app = \App\Core\Application::getInstance();
+            $container = $app->getContainer();
+            
+            if ($container->has('config')) {
+                $configManager = $container->get('config');
+                return $configManager->get($key, $default);
             }
-            $value = $value[$k];
+            
+            // If no config manager, try enhanced config manager
+            if ($container->has(\App\Core\Config\EnhancedConfigManager::class)) {
+                $configManager = $container->get(\App\Core\Config\EnhancedConfigManager::class);
+                return $configManager->get($key, $default);
+            }
+            
+            return $default;
+            
+        } catch (Exception $e) {
+            // Log the error for debugging
+            if ($container->has(\Psr\Log\LoggerInterface::class)) {
+                $logger = $container->get(\Psr\Log\LoggerInterface::class);
+                $logger->error('Config helper error: ' . $e->getMessage(), ['exception' => $e]);
+            }
+            return $default;
         }
-        
-        return $value;
     }
 }
 

@@ -1,11 +1,13 @@
 <?php
 
+// Load Composer dependencies
+require_once __DIR__ . '/../../vendor/autoload.php';
+
 class PdfGenerator {
     private $tcpdf;
     
     public function __construct() {
-        // Use TCPDF for PDF generation
-        require_once __DIR__ . '/../../vendor/autoload.php';
+        // TCPDF is now available via autoloader
     }
     /**
      * Generate PDF from HTML content

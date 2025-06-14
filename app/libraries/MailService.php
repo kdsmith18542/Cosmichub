@@ -5,8 +5,10 @@ use Exception;
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\SMTP as PHPMailerSMTP;
 use PHPMailer\PHPMailer\Exception as PHPMailerException;
+use Psr\Log\LoggerInterface;
 
 class MailService {
+    protected LoggerInterface $logger;
     /** @var PHPMailer */
     private $mailer;
     
@@ -19,7 +21,8 @@ class MailService {
     /**
      * Constructor
      */
-    public function __construct() {
+    public function __construct(LoggerInterface $logger) {
+        $this->logger = $logger;
         $this->mailer = new PHPMailer(true);
         $this->fromEmail = $_ENV['MAIL_FROM_ADDRESS'] ?? 'noreply@cosmichub.online';
         $this->fromName = $_ENV['MAIL_FROM_NAME'] ?? 'CosmicHub';
@@ -77,10 +80,10 @@ class MailService {
             return true;
             
         } catch (PHPMailerException $e) {
-            error_log('Mailer Error: ' . $this->mailer->ErrorInfo);
+            $this->logger->error('Mailer Error: ' . $this->mailer->ErrorInfo, ['component' => 'PHPMailer']);
             return false;
         } catch (Exception $e) {
-            error_log('Mail Error: ' . $e->getMessage());
+            $this->logger->error('Mail Error: ' . $e->getMessage(), ['exception' => $e]);
             return false;
         }
     }

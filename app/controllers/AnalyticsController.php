@@ -7,208 +7,193 @@
 
 namespace App\Controllers;
 
-use App\Models\AnalyticsEvent;
-use App\Models\BetaTestMetrics;
-use App\Models\UserFeedback;
-use App\Models\User;
+use App\Core\Controller\Controller;
+use App\Core\Http\Request;
+use App\Core\Http\Response;
 use App\Services\AnalyticsService;
+use Carbon\Carbon;
+use Psr\Log\LoggerInterface;
+use Exception; // Keep Exception for try-catch blocks
 
-class AnalyticsController extends BaseController
+class AnalyticsController extends Controller
 {
-    private $analyticsModel;
-    private $metricsModel;
-    private $feedbackModel;
-    private $userModel;
     private $analyticsService;
+    private $logger;
     
-    public function __construct()
+    public function __construct(LoggerInterface $logger)
     {
         parent::__construct();
-        $this->analyticsModel = new AnalyticsEvent();
-        $this->metricsModel = new BetaTestMetrics();
-        $this->feedbackModel = new UserFeedback();
-        $this->userModel = new User();
-        $this->analyticsService = new AnalyticsService();
+        $this->analyticsService = $this->resolve(AnalyticsService::class);
+        $this->logger = $logger;
+    }
+
+    /**
+     * Check if current user is admin
+     */
+    private function isAdmin(?object $user = null): bool // Assuming $user can be null if not logged in
+    {
+        $currentUser = $user ?: $this->getCurrentUser();
+        if (!$currentUser) {
+            return false;
+        }
+        // Assuming AdminService has an isAdmin method or similar logic
+        // Or, if User model has an isAdmin property/method:
+        // return $currentUser->is_admin ?? false; 
+        // For now, let's assume a method in AnalyticsService or a direct check if applicable
+        // This part needs to be adapted based on how admin status is actually determined.
+        // Placeholder, assuming a direct property or a method on user model for simplicity here.
+        // In a real scenario, this would likely involve checking a role or a specific flag.
+        return isset($currentUser->is_admin) && $currentUser->is_admin === true;
     }
     
     /**
      * Analytics dashboard (admin only)
      */
-    public function dashboard()
+    public function dashboard(Request $request): Response
     {
         try {
             // Check admin permissions
-            $user = $this->getAuthenticatedUser();
-            if (!$user || !$this->isAdmin($user)) {
-                $this->redirect('/dashboard');
-                return;
+            if (!$this->isLoggedIn()) {
+                return $this->redirect('/login');
+            }
+            
+            if (!$this->isAdmin()) {
+                return $this->redirect('/dashboard');
             }
             
             // Track dashboard access
             $this->analyticsService->trackEvent(
                 AnalyticsService::EVENT_PAGE_VIEW,
                 ['page' => 'analytics_dashboard'],
-                ['page_load_time' => microtime(true) - $_SERVER['REQUEST_TIME_FLOAT']]
+                ['page_load_time' => microtime(true) - ($_SERVER['REQUEST_TIME_FLOAT'] ?? microtime(true))]
             );
             
             // Get date range from query parameters
-            $days = (int)($_GET['days'] ?? 7);
-            $endDate = date('Y-m-d');
-            $startDate = date('Y-m-d', strtotime("-{$days} days"));
+            $days = (int)$request->get('days', 7);
+            $endDate = Carbon::now();
+            $startDate = Carbon::now()->subDays($days);
             
-            // Get dashboard summary
-            $summary = $this->metricsModel->getDashboardSummary($days);
-            
-            // Get recent analytics events
-            $recentEvents = $this->analyticsModel->getByDateRange($startDate, $endDate);
-            
-            // Get event counts
-            $eventCounts = $this->analyticsModel->getEventCounts($startDate, $endDate);
-            
-            // Get daily stats
-            $dailyStats = $this->analyticsModel->getDailyStats($days);
-            
-            // Get user engagement metrics
-            $userEngagement = $this->analyticsModel->getUserEngagementMetrics();
-            
-            // Get performance metrics
-            $performanceMetrics = $this->analyticsModel->getPerformanceMetrics($startDate, $endDate);
-            
-            // Get recent feedback
-            $recentFeedback = $this->feedbackModel->getRecent(10);
-            
-            // Get feedback statistics
-            $feedbackStats = $this->feedbackModel->getStatistics($startDate, $endDate);
+            // Use AnalyticsService for all data fetching
+            $summary = $this->analyticsService->getDashboardSummary($startDate, $endDate);
+            $recentEvents = $this->analyticsService->getRecentEvents($startDate, $endDate, 50);
+            $eventCounts = $this->analyticsService->getEventCounts($startDate, $endDate);
+            $dailyStats = $this->analyticsService->getDailyStats($days); // or $startDate, $endDate
+            $userEngagement = $this->analyticsService->getUserEngagementMetrics(20);
+            $performanceMetrics = $this->analyticsService->getPerformanceMetrics($startDate, $endDate);
+            $recentFeedback = $this->analyticsService->getRecentFeedback(10);
+            $feedbackStats = $this->analyticsService->getFeedbackStats($startDate, $endDate);
             
             $data = [
                 'title' => 'Analytics Dashboard - CosmicHub Beta',
                 'summary' => $summary,
-                'recentEvents' => array_slice($recentEvents, 0, 50), // Limit to 50 recent events
+                'recentEvents' => $recentEvents,
                 'eventCounts' => $eventCounts,
                 'dailyStats' => $dailyStats,
-                'userEngagement' => array_slice($userEngagement, 0, 20), // Top 20 users
+                'userEngagement' => $userEngagement,
                 'performanceMetrics' => $performanceMetrics,
                 'recentFeedback' => $recentFeedback,
                 'feedbackStats' => $feedbackStats,
                 'dateRange' => [
-                    'start' => $startDate,
-                    'end' => $endDate,
+                    'start' => $startDate->toDateString(),
+                    'end' => $endDate->toDateString(),
                     'days' => $days
                 ]
             ];
             
-            $this->view('analytics/dashboard', $data);
+            return $this->view('analytics/dashboard', $data);
         } catch (Exception $e) {
             $this->analyticsService->trackEvent(
                 AnalyticsService::EVENT_ERROR,
-                ['error' => 'analytics_dashboard_error', 'message' => $e->getMessage()]
+                ['error' => 'analytics_dashboard_error', 'message' => $e->getMessage(), 'trace' => $e->getTraceAsString()]
             );
-            $this->handleError('Error loading analytics dashboard');
+            // Consider a more user-friendly error page or message
+            return $this->json(['error' => 'Error loading analytics dashboard. Please try again later.'], 500);
         }
     }
     
     /**
      * API endpoint for real-time metrics
      */
-    public function api()
+    public function api(Request $request): Response
     {
         try {
             // Check admin permissions
-            $user = $this->getAuthenticatedUser();
-            if (!$user || !$this->isAdmin($user)) {
-                http_response_code(403);
-                echo json_encode(['error' => 'Unauthorized']);
-                return;
+            if (!$this->isLoggedIn()) {
+                return $this->json(['error' => 'Unauthorized'], 401);
             }
             
-            $endpoint = $_GET['endpoint'] ?? '';
-            $days = (int)($_GET['days'] ?? 7);
+            if (!$this->isAdmin()) {
+                return $this->json(['error' => 'Forbidden. Admin access required.'], 403);
+            }
             
-            header('Content-Type: application/json');
+            $endpoint = $request->get('endpoint', '');
+            $days = (int)$request->get('days', 7);
+            $startDate = Carbon::now()->subDays($days);
+            $endDate = Carbon::now();
             
             switch ($endpoint) {
                 case 'summary':
-                    echo json_encode($this->metricsModel->getDashboardSummary($days));
-                    break;
+                    return $this->json($this->analyticsService->getDashboardSummary($startDate, $endDate));
                     
                 case 'events':
-                    $eventType = $_GET['type'] ?? null;
-                    $limit = (int)($_GET['limit'] ?? 100);
-                    $events = $eventType 
-                        ? $this->analyticsModel->getByType($eventType, $limit)
-                        : $this->analyticsModel->getByDateRange(
-                            date('Y-m-d', strtotime("-{$days} days")),
-                            date('Y-m-d')
-                        );
-                    echo json_encode($events);
-                    break;
+                    $eventType = $request->get('type');
+                    $limit = (int)$request->get('limit', 100);
+                    $events = $this->analyticsService->getEvents($startDate, $endDate, $eventType, $limit);
+                    return $this->json($events);
                     
                 case 'metrics':
-                    $metricName = $_GET['metric'] ?? '';
+                    $metricName = $request->get('metric', '');
                     if ($metricName) {
-                        $metrics = $this->metricsModel->getMetric(
-                            $metricName,
-                            date('Y-m-d', strtotime("-{$days} days")),
-                            date('Y-m-d')
-                        );
-                        echo json_encode($metrics);
+                        $metrics = $this->analyticsService->getMetric($metricName, $startDate, $endDate);
+                        return $this->json($metrics);
                     } else {
-                        echo json_encode(['error' => 'Metric name required']);
+                        return $this->json(['error' => 'Metric name required'], 400);
                     }
-                    break;
                     
                 case 'trends':
-                    $metricName = $_GET['metric'] ?? '';
+                    $metricName = $request->get('metric', '');
                     if ($metricName) {
-                        $trends = $this->metricsModel->getMetricTrends($metricName, $days);
-                        echo json_encode($trends);
+                        $trends = $this->analyticsService->getMetricTrends($metricName, $days);
+                        return $this->json($trends);
                     } else {
-                        echo json_encode(['error' => 'Metric name required']);
+                        return $this->json(['error' => 'Metric name required'], 400);
                     }
-                    break;
                     
                 case 'performance':
-                    $performance = $this->analyticsModel->getPerformanceMetrics(
-                        date('Y-m-d', strtotime("-{$days} days")),
-                        date('Y-m-d')
-                    );
-                    echo json_encode($this->processPerformanceData($performance));
-                    break;
+                    $performance = $this->analyticsService->getPerformanceMetrics($startDate, $endDate);
+                    // Assuming processPerformanceData is now part of AnalyticsService or data is returned ready
+                    return $this->json($performance); 
                     
                 case 'user_engagement':
-                    $engagement = $this->analyticsModel->getUserEngagementMetrics();
-                    echo json_encode(array_slice($engagement, 0, 50)); // Top 50 users
-                    break;
+                    $engagement = $this->analyticsService->getUserEngagementMetrics(50);
+                    return $this->json($engagement);
                     
                 default:
-                    http_response_code(400);
-                    echo json_encode(['error' => 'Invalid endpoint']);
-                    break;
+                    return $this->json(['error' => 'Invalid endpoint'], 400);
             }
         } catch (Exception $e) {
-            http_response_code(500);
-            echo json_encode(['error' => 'Internal server error']);
+            // Log the error for debugging
+            $this->logger->error('API Error in AnalyticsController: ' . $e->getMessage() . "\n" . $e->getTraceAsString());
+            return $this->json(['error' => 'Internal server error. Please try again later.'], 500);
         }
     }
     
     /**
      * Track event endpoint (for JavaScript tracking)
      */
-    public function track()
+    public function track(Request $request): Response
     {
         try {
-            if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-                http_response_code(405);
-                echo json_encode(['error' => 'Method not allowed']);
-                return;
+            if (!$request->isPost()) {
+                return $this->json(['error' => 'Method not allowed'], 405);
             }
             
-            $input = json_decode(file_get_contents('php://input'), true);
+            $input = $request->getJsonData(); // Assumes getJsonData() parses JSON body
             
             if (!$input || !isset($input['event_type'])) {
-                http_response_code(400);
-                echo json_encode(['error' => 'Invalid input']);
-                return;
+                // It's good practice to log invalid attempts if they are frequent
+                $this->logger->error('Invalid track request: ' . json_encode($input));
+                return $this->json(['error' => 'Invalid input: event_type is required.'], 400);
             }
             
             // Track the event
@@ -219,32 +204,32 @@ class AnalyticsController extends BaseController
             );
             
             if ($result) {
-                echo json_encode(['success' => true]);
+                return $this->json(['success' => true]);
             } else {
-                http_response_code(500);
-                echo json_encode(['error' => 'Failed to track event']);
+                return $this->json(['error' => 'Failed to track event'], 500);
             }
         } catch (Exception $e) {
-            http_response_code(500);
-            echo json_encode(['error' => 'Internal server error']);
+            return $this->json(['error' => 'Internal server error'], 500);
         }
     }
     
     /**
      * Generate daily metrics report
      */
-    public function generateDailyReport()
+    public function generateDailyReport(Request $request): Response
     {
         try {
             // Check admin permissions
-            $user = $this->getAuthenticatedUser();
-            if (!$user || !$this->isAdmin($user)) {
-                http_response_code(403);
-                echo json_encode(['error' => 'Unauthorized']);
-                return;
+            if (!$this->isLoggedIn()) {
+                return $this->json(['error' => 'Unauthorized'], 401);
             }
             
-            $date = $_GET['date'] ?? date('Y-m-d');
+            $user = $this->getCurrentUser();
+            if (!$this->isAdmin($user)) {
+                return $this->json(['error' => 'Unauthorized'], 403);
+            }
+            
+            $date = $request->get('date', date('Y-m-d'));
             
             // Generate the report
             $report = $this->metricsModel->generateDailyReport($date);
@@ -255,30 +240,31 @@ class AnalyticsController extends BaseController
                 ['action' => 'daily_report_generated', 'date' => $date]
             );
             
-            header('Content-Type: application/json');
-            echo json_encode($report);
+            return $this->json($report);
         } catch (Exception $e) {
-            http_response_code(500);
-            echo json_encode(['error' => 'Failed to generate report']);
+            return $this->json(['error' => 'Failed to generate report'], 500);
         }
     }
     
     /**
      * Export analytics data
      */
-    public function export()
+    public function export(Request $request): Response
     {
         try {
             // Check admin permissions
-            $user = $this->getAuthenticatedUser();
-            if (!$user || !$this->isAdmin($user)) {
-                $this->redirect('/dashboard');
-                return;
+            if (!$this->isLoggedIn()) {
+                return $this->redirect('/dashboard');
             }
             
-            $format = $_GET['format'] ?? 'csv';
-            $type = $_GET['type'] ?? 'events';
-            $days = (int)($_GET['days'] ?? 30);
+            $user = $this->getCurrentUser();
+            if (!$this->isAdmin($user)) {
+                return $this->redirect('/dashboard');
+            }
+            
+            $format = $request->get('format', 'csv');
+            $type = $request->get('type', 'events');
+            $days = (int)$request->get('days', 30);
             
             $startDate = date('Y-m-d', strtotime("-{$days} days"));
             $endDate = date('Y-m-d');
@@ -303,14 +289,13 @@ class AnalyticsController extends BaseController
                     break;
                     
                 default:
-                    $this->handleError('Invalid export type');
-                    return;
+                    return $this->json(['error' => 'Invalid export type'], 400);
             }
             
             if ($format === 'csv') {
-                $this->exportToCsv($data, $filename);
+                $response = $this->exportToCsv($data, $filename);
             } else {
-                $this->exportToJson($data, $filename);
+                $response = $this->exportToJson($data, $filename);
             }
             
             // Track export
@@ -323,8 +308,10 @@ class AnalyticsController extends BaseController
                     'date_range' => "{$startDate} to {$endDate}"
                 ]
             );
+            
+            return $response;
         } catch (Exception $e) {
-            $this->handleError('Error exporting data');
+            return $this->json(['error' => 'Error exporting data'], 500);
         }
     }
     
@@ -392,12 +379,9 @@ class AnalyticsController extends BaseController
     /**
      * Export data to CSV
      */
-    private function exportToCsv($data, $filename)
+    private function exportToCsv($data, $filename): Response
     {
-        header('Content-Type: text/csv');
-        header("Content-Disposition: attachment; filename={$filename}.csv");
-        
-        $output = fopen('php://output', 'w');
+        $output = fopen('php://temp', 'w');
         
         if (!empty($data)) {
             // Write headers
@@ -409,36 +393,34 @@ class AnalyticsController extends BaseController
             }
         }
         
+        rewind($output);
+        $content = stream_get_contents($output);
         fclose($output);
+        
+        return new Response($content, 200, [
+            'Content-Type' => 'text/csv',
+            'Content-Disposition' => "attachment; filename={$filename}.csv"
+        ]);
     }
     
     /**
      * Export data to JSON
      */
-    private function exportToJson($data, $filename)
+    private function exportToJson($data, $filename): Response
     {
-        header('Content-Type: application/json');
-        header("Content-Disposition: attachment; filename={$filename}.json");
+        $content = json_encode($data, JSON_PRETTY_PRINT);
         
-        echo json_encode($data, JSON_PRETTY_PRINT);
+        return new Response($content, 200, [
+            'Content-Type' => 'application/json',
+            'Content-Disposition' => "attachment; filename={$filename}.json"
+        ]);
     }
     
     /**
      * Check if user is admin
      */
-    private function isAdmin($user)
+    private function isAdmin($user): bool
     {
         return isset($user['is_admin']) && $user['is_admin'] == 1;
-    }
-    
-    /**
-     * Get authenticated user
-     */
-    private function getAuthenticatedUser()
-    {
-        if (isset($_SESSION['user_id'])) {
-            return $this->userModel->findById($_SESSION['user_id']);
-        }
-        return null;
     }
 }

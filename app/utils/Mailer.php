@@ -10,15 +10,18 @@ require_once __DIR__ . '/../../PHPMailer/SMTP.php';
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\SMTP;
 use PHPMailer\PHPMailer\Exception;
+use Psr\Log\LoggerInterface;
 
 class Mailer {
+    protected LoggerInterface $logger;
     private $mailer;
     private $templatesPath;
     private $siteUrl;
     private $fromEmail;
     private $fromName;
 
-    public function __construct() {
+    public function __construct(LoggerInterface $logger) {
+        $this->logger = $logger;
         $this->mailer = new PHPMailer(true);
         $this->templatesPath = __DIR__ . '/../../templates/emails/';
         $this->siteUrl = rtrim($_ENV['SITE_URL'] ?? 'https://cosmichub.online', '/');
@@ -43,7 +46,7 @@ class Mailer {
             $this->mailer->SMTPDebug = SMTP::DEBUG_CONNECTION;
             $this->mailer->Debugoutput = function($str, $level) {
                 $log = "[PHPMailer $level] $str\n";
-                error_log($log, 3, __DIR__ . '/../../mailer_debug.log');
+                $this->logger->debug($str, ['level' => $level, 'component' => 'PHPMailer']);
                 echo $log;
             };
 
@@ -61,7 +64,7 @@ class Mailer {
             ];
             
         } catch (\Exception $e) {
-            error_log("Mailer configuration error: " . $e->getMessage());
+            $this->logger->error("Mailer configuration error: " . $e->getMessage(), ['exception' => $e]);
             throw $e;
         }
     }
@@ -107,7 +110,7 @@ class Mailer {
             return true;
             
         } catch (\Exception $e) {
-            error_log("Failed to send verification email to $toEmail: " . $e->getMessage());
+            $this->logger->error("Failed to send verification email to $toEmail: " . $e->getMessage(), ['exception' => $e, 'toEmail' => $toEmail]);
             return false;
         }
     }
@@ -176,7 +179,7 @@ class Mailer {
             return true;
             
         } catch (\Exception $e) {
-            error_log("Failed to send email to $toEmail: " . $e->getMessage());
+            $this->logger->error("Failed to send email to $toEmail: " . $e->getMessage(), ['exception' => $e, 'toEmail' => $toEmail]);
             return false;
         }
     }

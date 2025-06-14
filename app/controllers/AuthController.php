@@ -7,462 +7,292 @@
 
 namespace App\Controllers;
 
-use App\Libraries\Controller;
-use App\Models\User;
+use App\Core\Controller\Controller;
+use App\Core\Http\Request;
+use App\Core\Http\Response;
+use App\Services\UserService;
+use App\Services\EmailService;
+use App\Utils\TokenManager;
+use App\Exceptions\ValidationException;
 use Exception;
-use PDOException;
-
-/**
- * @property \App\Models\User $userModel
- */
+use Psr\Log\LoggerInterface;
 
 class AuthController extends Controller {
-    /** @var User */
-    protected $userModel;
-    
-    public function __construct() {
-        // Initialize the User model
-        $this->userModel = new User();
+    protected UserService $userService;
+    protected EmailService $emailService;
+    protected TokenManager $tokenManager;
+
+    protected LoggerInterface $logger;
+
+    public function __construct(
+        UserService $userService,
+        EmailService $emailService,
+        TokenManager $tokenManager,
+        LoggerInterface $logger
+    ) {
+        parent::__construct();
+        $this->userService = $userService;
+        $this->emailService = $emailService;
+        $this->tokenManager = $tokenManager;
+        $this->logger = $logger;
     }
     
     /**
      * Show login form
      */
-    public function loginForm() {
+    public function loginForm(Request $request, Response $response): Response {
         // Redirect if already logged in
-        $this->requireGuest('/dashboard');
+        if ($this->isLoggedIn()) {
+            return $response->redirect('/dashboard');
+        }
         
         // Get redirect URL if any
-        $redirect = $_SESSION['redirect_after_login'] ?? '/dashboard';
-        
-        // Get flash messages
-        $error = $this->getFlash('error');
-        $old = $this->getFlash('old', []);
+        $redirect = $request->input('redirect_after_login', '/dashboard'); // Assuming redirect_after_login might be a query param too
+        if (!$redirect) {
+            $redirect = $request->session('redirect_after_login', '/dashboard');
+        }
         
         // Show login form
         $data = [
             'title' => 'Login',
-            'error' => $error,
-            'email' => $old['email'] ?? '',
             'redirect' => $redirect
         ];
         
-        // Load the login view
-        $this->view('auth/login', $data);
+        return $response->render('auth/login', $data);
     }
     
     /**
      * Handle login form submission
      */
-    public function login() {
+    public function login(Request $request, Response $response): Response {
         // Redirect if already logged in
-        $this->requireGuest('/dashboard');
-        
-        // Verify CSRF token
-        if (!csrf_verify('login_form', false)) {
-            $this->setFlash('error', 'Invalid security token. Please try again.');
-            $this->redirect('/login');
-            return;
+        if ($this->isLoggedIn()) {
+            return $response->redirect('/dashboard');
         }
         
-        // Validate input
-        $email = sanitize_input($_POST['email'] ?? '');
-        $password = $_POST['password'] ?? '';
-        $remember = isset($_POST['remember']);
-        $redirect = $_POST['redirect'] ?? '/dashboard';
-        
-        // Store old input for repopulating form
-        $this->setFlash('old', [
-            'email' => $email
-        ]);
-        
-        // Basic validation
-        if (empty($email) || empty($password)) {
-            $this->setFlash('error', 'Both email and password are required');
-            $this->redirect('/login');
-            return;
-        }
+        // Get form data
+        $email = $request->input('email', '');
+        $password = $request->input('password', '');
+        $remember = $request->has('remember');
+        $redirect = $request->input('redirect', '/dashboard');
         
         try {
-            // Find user by email
-            $user = $this->userModel->findByEmail($email);
+            // Attempt login using UserService
+            $result = $this->userService->login($email, $password, $remember);
             
-            // Verify password
-            if ($user && $user->verifyPassword($password)) {
-                // Check if email is verified
-                if (!$user->hasVerifiedEmail()) {
-                    // Resend verification email automatically or guide user
-                    $emailService = new \App\Services\EmailService();
-                    $emailService->sendVerificationEmail($user); // Attempt to resend
-                    
-                    Session::setFlash('warning', 'Your email address is not verified. A new verification link has been sent to your email. Please check your inbox (and spam folder).');
-                    // Store intended URL if any, so user can be redirected after verification
-                    if (Session::has('redirect_url')) {
-                        // Keep it for after verification
-                    } else {
-                        // Potentially set a default redirect after verification, like dashboard
-                        // Session::set('redirect_after_verification', '/dashboard');
-                    }
-                    return redirect('/email/verify/notice');
-                }
-
-                // Regenerate session ID to prevent session fixation
-                session_regenerate_id(true);
+            if ($result['success']) {
+                // Set session data
+                $user = $result['data']['user'];
+                $request->setSession('user_id', $user->id);
+                $request->setSession('user_email', $user->email);
+                $request->setSession('user_name', $user->name);
+                $request->regenerateSession();
                 
-                // Set auth session
-                $this->setAuthSession([
-                    'id' => $user->getAttribute('id'),
-                    'name' => $user->getAttribute('name'),
-                    'email' => $user->getAttribute('email'),
-                    'role' => $user->getAttribute('role') ?? 'user'
-                ]);
+                // Clear redirect URL
+                $request->removeSession('redirect_after_login');
                 
-                // Clear any redirect URL
-                unset($_SESSION['redirect_after_login']);
-                
-                // Update last login
-                $user->setAttribute('last_login_at', date('Y-m-d H:i:s'));
-                $user->save();
-                
-                $this->redirect($redirect);
-                
-                // Redirect to dashboard
-                header('Location: /dashboard');
-                exit;
+                return $response->redirect($redirect);
             } else {
-                $this->setFlash('error', 'Invalid email or password');
-                $this->redirect('/login');
+                // Login failed
+                $request->flash('error', $result['message']);
+                $request->flash('old', ['email' => $email]);
+                return $response->redirect('/login');
             }
             
-        } catch (Exception $e) {
-            error_log('Login error: ' . $e->getMessage());
-            $this->setFlash('error', 'An error occurred. Please try again.');
-            $this->redirect('/login');
+        } catch (ValidationException $e) {
+                $request->flash('error', $e->getMessage());
+                $request->flash('old', ['email' => $email]);
+                return $response->redirect('/login');
+            } catch (Exception $e) {
+                $this->logger->error('Login error: ' . $e->getMessage());
+                $request->flash('error', 'An error occurred. Please try again.');
+                return $response->redirect('/login');
         }
     }
     
     /**
      * Logout user
      */
-    public function logout() {
-        // Clear auth session
-        $this->clearAuthSession();
-
-        // Destroy all data registered to a session
-        session_destroy();
+    public function logout(Request $request, Response $response): Response {
+        // Use UserService to handle logout
+        $this->userService->logout();
+        
+        // Clear session data
+        $request->clearSession();
+        $request->regenerateSession();
         
         // Set success message
-        $this->setFlash('success', 'You have been successfully logged out.');
+        $request->flash('success', 'You have been successfully logged out.');
         
         // Redirect to login page
-        $this->redirect('/login');
-        
-        // Delete the session cookie
-        if (ini_get('session.use_cookies')) {
-            $params = session_get_cookie_params();
-            setcookie(
-                session_name(),
-                '',
-                time() - 42000,
-                $params['path'],
-                $params['domain'],
-                $params['secure'],
-                $params['httponly']
-            );
-        }
+        return $response->redirect('/login');
     }
     
-
+    /**
+     * Show registration form
+     */
+    public function registerForm(Request $request, Response $response): Response {
+        // Redirect if already logged in
+        if ($this->isLoggedIn()) {
+            return $response->redirect('/dashboard');
+        }
+        
+        $data = [
+            'title' => 'Register'
+        ];
+        
+        return $response->render('auth/register', $data);
+    }
     
     /**
      * Handle registration form submission
      */
-    public function processRegister(Request $request)
+    public function processRegister(Request $request, Response $response): Response
     {
-        // Guest only
-        if (Auth::is_logged_in()) {
-            return redirect('/dashboard');
+        // Redirect if already logged in
+        if ($this->isLoggedIn()) {
+            return $response->redirect('/dashboard');
         }
 
-        // CSRF Check
-        if (!csrf_verify($request)) { // Using the helper function
-            Session::setFlash('error', 'Invalid request. Please try again.');
-            // Store old input to repopulate form
-            Session::setFlash('old_input', $request->all());
-            return redirect('/register');
-        }
-        
-        // Validate input
-        $name = sanitize_input($_POST['name'] ?? '');
-        $email = sanitize_input($_POST['email'] ?? '');
-        $password = $_POST['password'] ?? '';
-        $confirm_password = $_POST['confirm_password'] ?? '';
-        
-        // Store old input for repopulating form
-        $this->setFlash('old', [
-            'name' => $name,
-            'email' => $email
-        ]);
-        
-        // Validation
-        $errors = [];
-        
-        if (empty($name)) {
-            $errors[] = 'Name is required';
-        } elseif (strlen($name) < 2) {
-            $errors[] = 'Name must be at least 2 characters long';
-        } elseif (strlen($name) > 100) {
-            $errors[] = 'Name cannot be longer than 100 characters';
-        }
-        
-        if (empty($email)) {
-            $errors[] = 'Email is required';
-        } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-            $errors[] = 'Please enter a valid email address';
-        } elseif (strlen($email) > 255) {
-            $errors[] = 'Email cannot be longer than 255 characters';
-        }
-        
-        if (empty($password)) {
-            $errors[] = 'Password is required';
-        } elseif (strlen($password) < 8) {
-            $errors[] = 'Password must be at least 8 characters long';
-        } elseif (strlen($password) > 255) {
-            $errors[] = 'Password cannot be longer than 255 characters';
-        } elseif (!preg_match('/[A-Z]/', $password) || 
-                 !preg_match('/[a-z]/', $password) || 
-                 !preg_match('/[0-9]/', $password)) {
-            $errors[] = 'Password must contain at least one uppercase letter, one lowercase letter, and one number';
-        }
-        
-        if ($password !== $confirm_password) {
-            $errors[] = 'Passwords do not match';
-        }
-        
-        // If there are validation errors, redirect back with errors
-        if (!empty($errors)) {
-            $this->setFlash('error', implode('<br>', $errors));
-            $this->redirect('/register');
-            return;
-        }
+        // Get form data
+        $name = $request->input('name', '');
+        $email = $request->input('email', '');
+        $password = $request->input('password', '');
+        $confirm_password = $request->input('confirm_password', '');
         
         try {
-            // Begin transaction if supported
-            if (method_exists($this, 'beginTransaction')) {
-                $this->beginTransaction();
-            }
-            
-            // Check if email already exists
-            $existingUser = $this->userModel->findByEmail($email);
-            if ($existingUser) {
-                throw new Exception('This email is already registered');
-            }
-            
-            // Hash the password
-            $hashedPassword = password_hash($password, PASSWORD_BCRYPT, ['cost' => 12]);
-            
-            // Prepare user data
-            $userData = [
+            // Attempt registration using UserService
+            $result = $this->userService->register([
                 'name' => $name,
                 'email' => $email,
-                'password' => $hashedPassword,
-                'role' => 'user', // Default role
-                'status' => 'pending', // Will be set to active after email verification
-                'credits' => 0, // New users start with 0 credits
-                'subscription_status' => 'inactive',
-                'email_verified_at' => null,
-                'email_verification_token' => null,
-                'email_verification_sent_at' => null,
-                'remember_token' => null,
-                'created_at' => date('Y-m-d H:i:s'),
-                'updated_at' => date('Y-m-d H:i:s')
-            ];
+                'password' => $password,
+                'confirm_password' => $confirm_password
+            ]);
             
-            // Create the user
-            $user = new User();
-            $user->fill($userData);
-            
-            if (!$user->save()) {
-                throw new Exception('Failed to create user account');
-            }
-            
-            // Commit transaction if it was started
-            if (method_exists($this, 'commitTransaction')) {
-                $this->commitTransaction();
-            }
-            
-            // Generate email verification token
-            $verificationToken = $user->createEmailVerificationToken();
-            
-            // Build verification URL
-            $verificationUrl = url("/email/verify/{$user->id}/{$verificationToken}");
-            
-            // Send verification email
-            $emailService = new \App\Services\EmailService();
-            $emailResult = $emailService->sendVerificationEmail($user);
-
-            if ($emailResult['success']) {
-                Session::setFlash('success', 'Registration successful! Please check your email to verify your account. ' . ($emailResult['message'] ?? ''));
-                return redirect('/email/verify/notice');
+            if ($result['success']) {
+                // Registration successful
+                $request->flash('success', $result['message']);
+                return $response->redirect('/login');
             } else {
-                Logger::error('Failed to send verification email for user ID: ' . $user->id . '. Reason: ' . ($emailResult['message'] ?? 'Unknown error'));
-                // Even if email fails, user is created. They can resend from notice page or login attempt.
-                Session::setFlash('warning', 'Registration successful, but we encountered an issue sending your verification email. Please try logging in to resend the verification link or visit the email verification page.');
-                return redirect('/email/verify/notice');
+                // Registration failed
+                $request->flash('error', $result['message']);
+                $request->flash('old', [
+                    'name' => $name,
+                    'email' => $email
+                ]);
+                return $response->redirect('/register');
             }
             
-        } catch (Exception $e) {
-            // Rollback transaction if it was started
-            if (method_exists($this, 'rollbackTransaction')) {
-                $this->rollbackTransaction();
-            }
-            
-            // Log the error
-            error_log('Registration error: ' . $e->getMessage());
-            
-            // Set error message
-            $this->setFlash('error', $e->getMessage());
-            
-            // Redirect back to registration form
-            $this->redirect('/register');
+        } catch (ValidationException $e) {
+                $request->flash('error', $e->getMessage());
+                $request->flash('old', [
+                    'name' => $name,
+                    'email' => $email
+                ]);
+                return $response->redirect('/register');
+            } catch (Exception $e) {
+                $this->logger->error('Registration error: ' . $e->getMessage());
+                $request->flash('error', 'An error occurred during registration. Please try again.');
+                $request->flash('old', [
+                    'name' => $name,
+                    'email' => $email
+                ]);
+                return $response->redirect('/register');
         }
     }
 
     /**
      * Show the form for requesting a password reset link.
      */
-    public function showLinkRequestForm() {
-        $this->requireGuest('/dashboard');
-        $this->view('auth/password/email', ['title' => 'Reset Password']);
+    public function showLinkRequestForm(Request $request, Response $response): Response {
+        if ($this->isLoggedIn()) {
+            return $response->redirect('/dashboard');
+        }
+        
+        return $response->render('auth/password/email', ['title' => 'Reset Password']);
     }
 
     /**
      * Handle the request to send a password reset link.
      */
-    public function sendResetLinkEmail() {
-        $this->requireGuest('/dashboard');
-
-        if (!csrf_verify('password_email_form', false)) {
-            $this->setFlash('error', 'Invalid security token. Please try again.');
-            $this->redirect('/password/reset');
-            return;
+    public function sendResetLinkEmail(Request $request, Response $response): Response {
+        if ($this->isLoggedIn()) {
+            return $response->redirect('/dashboard');
         }
 
-        $email = sanitize_input($_POST['email'] ?? '');
+        $email = $request->input('email', '');
 
-        if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
-            $this->setFlash('error', 'Please enter a valid email address.');
-            $this->redirect('/password/reset');
-            return;
-        }
-
-        $user = $this->userModel->findByEmail($email);
-
-        if ($user) {
-            $tokenManager = new \App\Utils\TokenManager(new \App\Libraries\Database());
-            $token = $tokenManager->createToken($user->id, 'password_reset');
+        try {
+            $result = $this->userService->sendPasswordResetLink($email);
             
-            $emailService = new \App\Services\EmailService();
-            if ($emailService->sendPasswordResetEmail($user, $token)) {
-                $this->setFlash('success', 'A password reset link has been sent to your email address.');
+            if ($result['success']) {
+                $request->flash('success', $result['message']);
             } else {
-                $this->setFlash('error', 'Unable to send password reset email. Please try again later.');
+                $request->flash('error', $result['message']);
             }
-        } else {
-            // To prevent user enumeration, show a generic message even if the email doesn't exist.
-            $this->setFlash('success', 'If an account with that email exists, a password reset link has been sent.');
+        } catch (Exception $e) {
+            $this->logger->error('Password reset error: ' . $e->getMessage());
+            $request->flash('error', 'An error occurred. Please try again.');
         }
-        $this->redirect('/password/reset');
+        
+        return $response->redirect('/password/reset');
     }
 
     /**
      * Show the password reset form.
      */
-    public function showResetForm($token) {
-        $this->requireGuest('/dashboard');
-        $tokenManager = new \App\Utils\TokenManager(new \App\Libraries\Database());
-        $tokenData = $tokenManager->validateToken($token, 'password_reset');
-
-        if (!$tokenData) {
-            $this->setFlash('error', 'Invalid or expired password reset token.');
-            $this->redirect('/password/reset');
-            return;
+    public function showResetForm(Request $request, Response $response, $token): Response {
+        if ($this->isLoggedIn()) {
+            return $this->redirect('/dashboard');
         }
-
-        $this->view('auth/password/reset', [
-            'title' => 'Reset Your Password',
-            'token' => $token,
-            'email' => $tokenData['email']
-        ]);
+        
+        try {
+            $tokenData = $this->tokenManager->validateToken($token, 'password_reset');
+            
+            if (!$tokenData) {
+                $request->flash('error', 'Invalid or expired password reset token.');
+                return $response->redirect('/password/reset');
+            }
+            
+            return $response->render('auth/password/reset', [
+                'title' => 'Reset Your Password',
+                'token' => $token,
+                'email' => $tokenData['email']
+            ]);
+        } catch (Exception $e) {
+            $this->logger->error('Password reset form error: ' . $e->getMessage());
+            $request->flash('error', 'An error occurred. Please try again.');
+            return $response->redirect('/password/reset');
+        }
     }
 
     /**
      * Handle the actual password reset.
      */
-    public function resetPassword() {
-        $this->requireGuest('/dashboard');
-
-        if (!csrf_verify('password_reset_form', false)) {
-            $this->setFlash('error', 'Invalid security token. Please try again.');
-            // Ideally, redirect back to the reset form with the token if possible, or to the request form.
-            $this->redirect('/password/reset'); 
-            return;
+    public function resetPassword(Request $request, Response $response): Response {
+        if ($this->isLoggedIn()) {
+            return $this->redirect('/dashboard');
         }
-
-        $token = sanitize_input($_POST['token'] ?? '');
-        $email = sanitize_input($_POST['email'] ?? '');
-        $password = $_POST['password'] ?? '';
-        $confirm_password = $_POST['confirm_password'] ?? '';
-
-        $errors = [];
-        if (empty($token)) {
-            $errors[] = 'Reset token is missing.';
-        }
-        if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
-            $errors[] = 'A valid email is required.';
-        }
-        if (empty($password)) {
-            $errors[] = 'Password is required';
-        } elseif (strlen($password) < 8) {
-            $errors[] = 'Password must be at least 8 characters long';
-        } elseif (!preg_match('/[A-Z]/', $password) || !preg_match('/[a-z]/', $password) || !preg_match('/[0-9]/', $password)) {
-            $errors[] = 'Password must contain at least one uppercase letter, one lowercase letter, and one number';
-        }
-        if ($password !== $confirm_password) {
-            $errors[] = 'Passwords do not match';
-        }
-
-        if (!empty($errors)) {
-            $this->setFlash('error', implode('<br>', $errors));
-            // Redirect back to the reset form, ensuring the token and email are passed back if possible
-            $this->redirect('/password/reset/' . urlencode($token) . '?email=' . urlencode($email));
-            return;
-        }
-
-        $tokenManager = new \App\Utils\TokenManager(new \App\Libraries\Database());
-        $tokenData = $tokenManager->validateToken($token, 'password_reset');
-
-        if (!$tokenData || $tokenData['email'] !== $email) {
-            $this->setFlash('error', 'Invalid or expired password reset token, or email mismatch.');
-            $this->redirect('/password/reset');
-            return;
-        }
-
-        $user = $this->userModel->findByEmail($email);
-        if (!$user) {
-            $this->setFlash('error', 'User not found.'); // Should not happen if token is valid
-            $this->redirect('/password/reset');
-            return;
-        }
-
-        $user->password = password_hash($password, PASSWORD_BCRYPT, ['cost' => 12]);
-        if ($user->save()) {
-            $tokenManager->markTokenUsed($token);
-            $this->setFlash('success', 'Your password has been successfully reset. You can now log in.');
-            $this->redirect('/login');
-        } else {
-            $this->setFlash('error', 'Failed to reset password. Please try again.');
-            $this->redirect('/password/reset/' . urlencode($token) . '?email=' . urlencode($email));
+        
+        $token = $request->input('token', '');
+        $email = $request->input('email', '');
+        $password = $request->input('password', '');
+        $confirmPassword = $request->input('confirm_password', '');
+        
+        try {
+            $result = $this->userService->resetPassword($token, $email, $password, $confirmPassword);
+            
+            if ($result['success']) {
+                $request->flash('success', $result['message']);
+                return $response->redirect('/login');
+            } else {
+                $request->flash('error', $result['message']);
+                return $response->redirect('/password/reset/' . urlencode($token) . '?email=' . urlencode($email));
+            }
+        } catch (Exception $e) {
+            $this->logger->error('Password reset error: ' . $e->getMessage());
+            $request->flash('error', 'An error occurred. Please try again.');
+            return $response->redirect('/password/reset');
         }
     }
 }

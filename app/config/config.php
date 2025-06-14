@@ -1,4 +1,11 @@
 <?php
+
+namespace App\Config;
+
+use App\Config\Types\AppConfig;
+use App\Config\Types\DatabaseConfig;
+use App\Config\Types\SessionConfig;
+
 /**
  * Application Configuration
  * 
@@ -16,21 +23,21 @@ if (file_exists(__DIR__ . '/../../.env')) {
 
 // Application settings
 return [
-    'app' => [
+    'app' => new AppConfig([
         'name' => env('APP_NAME', 'CosmicHub'),
         'env' => env('APP_ENV', 'production'),
         'debug' => env('APP_DEBUG', false),
         'url' => env('APP_URL', 'http://cosmichub.local'),
         'timezone' => env('TIMEZONE', 'UTC'),
-        'date_format' => env('DATE_FORMAT', 'm/d/Y'), // USA Date Format (MM/DD/YYYY)
-        'time_format' => env('TIME_FORMAT', 'h:i A'),   // 12-hour Time Format (e.g., 03:30 PM)
-    ],
+        'date_format' => env('DATE_FORMAT', 'm/d/Y'),
+        'time_format' => env('TIME_FORMAT', 'h:i A'),
+    ]),
     
     // Database configuration
-    'database' => require __DIR__ . '/database.php',
+    'database' => new DatabaseConfig(require __DIR__ . '/database.php'),
     
     // Session configuration
-    'session' => [
+    'session' => new SessionConfig([
         'driver' => env('SESSION_DRIVER', 'file'),
         'lifetime' => env('SESSION_LIFETIME', 120),
         'cookie' => [
@@ -40,5 +47,5 @@ return [
             'httponly' => true,
             'samesite' => 'Lax',
         ],
-    ],
+    ]),
 ];

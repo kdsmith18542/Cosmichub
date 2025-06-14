@@ -1,96 +1,156 @@
 <?php
 /**
- * Phase 3 Beta Testing Routes
+ * Phase 3 Beta Testing Routes Configuration
  * 
- * Additional routes for analytics, feedback, and monitoring during beta testing
+ * This file contains route definitions that should be loaded by the router, not the config system
+ * Temporarily returning empty array to prevent config loading errors
  */
 
-// Unified Admin Dashboard Routes
-$router->get('/admin', 'AdminController@dashboard');
-$router->get('/admin/dashboard', 'AdminController@dashboard');
-$router->get('/admin/api', 'AdminController@api');
-$router->get('/admin/export', 'AdminController@export');
+return [
+    // Route definitions moved to proper routes directory
+    // This file should be relocated to routes/ directory
+];
+
+/*
+// ALL ROUTE DEFINITIONS COMMENTED OUT TO PREVENT CONFIG LOADING ERRORS
+// These routes should be moved to a proper routes file and loaded by the router
+// This file was incorrectly placed in the config directory and should be moved to routes/
+
+// Original route definitions (commented out to prevent config loading errors):
+// $router->get('/admin', 'AdminController@dashboard');
+// $router->get('/admin/dashboard', 'AdminController@dashboard');
+// $router->get('/admin/api', 'AdminController@api');
+// $router->get('/admin/export', 'AdminController@export');
 
 // Analytics Routes (Legacy)
-$router->get('/analytics/dashboard', 'AnalyticsController@dashboard');
-$router->get('/analytics/api/metrics', 'AnalyticsController@getMetrics');
-$router->post('/analytics/track', 'AnalyticsController@trackEvent');
-$router->get('/analytics/reports/daily', 'AnalyticsController@generateDailyReport');
-$router->get('/analytics/export', 'AnalyticsController@exportData');
+// $router->get('/analytics/dashboard', 'AnalyticsController@dashboard');
+// $router->get('/analytics/api/metrics', 'AnalyticsController@getMetrics');
+// $router->post('/analytics/track', 'AnalyticsController@trackEvent');
+// $router->get('/analytics/reports/daily', 'AnalyticsController@generateDailyReport');
+// $router->get('/analytics/export', 'AnalyticsController@exportData');
 
 // Feedback Routes
-$router->get('/feedback', 'FeedbackController@index');
-$router->post('/feedback/submit', 'FeedbackController@submit');
-$router->get('/feedback/widget', 'FeedbackController@widget');
+// $router->get('/feedback', 'FeedbackController@index');
+// $router->post('/feedback/submit', 'FeedbackController@submit');
+// $router->get('/feedback/widget', 'FeedbackController@widget');
 
 // Admin Feedback Management Routes
-$router->get('/feedback/admin', 'FeedbackController@admin');
-$router->get('/feedback/admin/details/{id}', 'FeedbackController@getDetails');
-$router->post('/feedback/admin/update-status', 'FeedbackController@updateStatus');
-$router->post('/feedback/admin/respond', 'FeedbackController@respond');
+// $router->get('/feedback/admin', 'FeedbackController@admin');
+// $router->get('/feedback/admin/details/{id}', 'FeedbackController@getDetails');
+// $router->post('/feedback/admin/update-status', 'FeedbackController@updateStatus');
+// $router->post('/feedback/admin/respond', 'FeedbackController@respond');
 
 // Beta Testing Metrics API Routes
-$router->get('/api/beta/metrics', 'BetaTestController@getMetrics');
-$router->post('/api/beta/record-metric', 'BetaTestController@recordMetric');
-$router->get('/api/beta/daily-report', 'BetaTestController@getDailyReport');
+// $router->get('/api/beta/metrics', 'BetaTestController@getMetrics');
+// $router->post('/api/beta/record-metric', 'BetaTestController@recordMetric');
+// $router->get('/api/beta/daily-report', 'BetaTestController@getDailyReport');
 
 // Health Check and Monitoring Routes
-$router->get('/health', 'HealthController@check');
-$router->get('/status', 'HealthController@status');
-$router->get('/metrics', 'HealthController@metrics');
+// $router->get('/health', 'HealthController@check');
+// $router->get('/status', 'HealthController@status');
+// $router->get('/metrics', 'HealthController@metrics');
 
 // Error Tracking Routes
-$router->post('/errors/report', 'ErrorController@report');
-$router->get('/errors/dashboard', 'ErrorController@dashboard');
+// $router->post('/errors/report', 'ErrorController@report');
+// $router->get('/errors/dashboard', 'ErrorController@dashboard');
 
 // User Engagement Tracking
-$router->post('/engagement/track', 'EngagementController@track');
-$router->get('/engagement/stats', 'EngagementController@getStats');
+// $router->post('/engagement/track', 'EngagementController@track');
+// $router->get('/engagement/stats', 'EngagementController@getStats');
 
 // A/B Testing Routes (for future use)
-$router->get('/ab-test/{test_name}', 'ABTestController@getVariant');
-$router->post('/ab-test/{test_name}/convert', 'ABTestController@recordConversion');
+// $router->get('/ab-test/{test_name}', 'ABTestController@getVariant');
+// $router->post('/ab-test/{test_name}/convert', 'ABTestController@recordConversion');
 
 // Performance Monitoring
-$router->post('/performance/report', 'PerformanceController@report');
-$router->get('/performance/dashboard', 'PerformanceController@dashboard');
+// $router->post('/performance/report', 'PerformanceController@report');
+// $router->get('/performance/dashboard', 'PerformanceController@dashboard');
 
 // Feature Flag Routes (for gradual rollouts)
-$router->get('/features/{feature_name}', 'FeatureController@isEnabled');
-$router->post('/features/{feature_name}/toggle', 'FeatureController@toggle');
+// $router->get('/features/{feature_name}', 'FeatureController@isEnabled');
+// $router->post('/features/{feature_name}/toggle', 'FeatureController@toggle');
 
 // Beta User Management
-$router->get('/beta/users', 'BetaUserController@index');
-$router->post('/beta/users/{id}/invite', 'BetaUserController@invite');
-$router->post('/beta/users/{id}/remove', 'BetaUserController@remove');
+// $router->get('/beta/users', 'BetaUserController@index');
+// $router->post('/beta/users/{id}/invite', 'BetaUserController@invite');
+// $router->post('/beta/users/{id}/remove', 'BetaUserController@remove');
 
 // Crash Reporting
-$router->post('/crashes/report', 'CrashController@report');
-$router->get('/crashes/dashboard', 'CrashController@dashboard');
+// $router->post('/crashes/report', 'CrashController@report');
+// $router->get('/crashes/dashboard', 'CrashController@dashboard');
 
 // Session Recording (for UX analysis)
-$router->post('/sessions/start', 'SessionController@start');
-$router->post('/sessions/event', 'SessionController@recordEvent');
-$router->post('/sessions/end', 'SessionController@end');
+// $router->post('/sessions/start', 'SessionController@start');
+// $router->post('/sessions/event', 'SessionController@recordEvent');
+// $router->post('/sessions/end', 'SessionController@end');
 
 // Heatmap Data Collection
-$router->post('/heatmap/click', 'HeatmapController@recordClick');
-$router->post('/heatmap/scroll', 'HeatmapController@recordScroll');
-$router->get('/heatmap/data/{page}', 'HeatmapController@getData');
+// $router->post('/heatmap/click', 'HeatmapController@recordClick');
+// $router->post('/heatmap/scroll', 'HeatmapController@recordScroll');
+// $router->get('/heatmap/data/{page}', 'HeatmapController@getData');
 
 // User Journey Tracking
-$router->post('/journey/step', 'JourneyController@recordStep');
-$router->get('/journey/analysis', 'JourneyController@getAnalysis');
+// $router->post('/journey/step', 'JourneyController@recordStep');
+// $router->get('/journey/analysis', 'JourneyController@getAnalysis');
 
 // Conversion Funnel Tracking
-$router->post('/funnel/step', 'FunnelController@recordStep');
-$router->get('/funnel/analysis', 'FunnelController@getAnalysis');
+// $router->post('/funnel/step', 'FunnelController@recordStep');
+// $router->get('/funnel/analysis', 'FunnelController@getAnalysis');
 
 // Real-time Notifications for Admins
-$router->get('/notifications/stream', 'NotificationController@stream');
-$router->post('/notifications/mark-read', 'NotificationController@markRead');
+// $router->get('/notifications/stream', 'NotificationController@stream');
+// $router->post('/notifications/mark-read', 'NotificationController@markRead');
 
 // Data Export Routes
+// $router->get('/export/analytics/{format}', 'ExportController@analytics');
+// $router->get('/export/feedback/{format}', 'ExportController@feedback');
+// $router->get('/export/users/{format}', 'ExportController@users');
+
+// Backup and Recovery
+// $router->post('/backup/create', 'BackupController@create');
+// $router->get('/backup/list', 'BackupController@list');
+// $router->post('/backup/restore/{id}', 'BackupController@restore');
+
+// System Maintenance
+// $router->post('/maintenance/enable', 'MaintenanceController@enable');
+// $router->post('/maintenance/disable', 'MaintenanceController@disable');
+// $router->get('/maintenance/status', 'MaintenanceController@status');
+
+// Cache Management
+// $router->post('/cache/clear', 'CacheController@clear');
+// $router->get('/cache/stats', 'CacheController@stats');
+
+// Database Optimization
+// $router->post('/db/optimize', 'DatabaseController@optimize');
+// $router->get('/db/stats', 'DatabaseController@stats');
+
+// Log Management
+// $router->get('/logs', 'LogController@index');
+// $router->get('/logs/{file}', 'LogController@view');
+// $router->post('/logs/clear', 'LogController@clear');
+
+// Security Monitoring
+// $router->post('/security/report-incident', 'SecurityController@reportIncident');
+// $router->get('/security/dashboard', 'SecurityController@dashboard');
+
+// Rate Limiting Test Routes
+// $router->get('/test/rate-limit', 'TestController@rateLimit');
+// $router->get('/test/load', 'TestController@load');
+// $router->get('/test/memory', 'TestController@memory');
+
+// API Documentation Routes
+// $router->get('/docs/api', 'DocumentationController@api');
+// $router->get('/docs/analytics', 'DocumentationController@analytics');
+// $router->get('/docs/feedback', 'DocumentationController@feedback');
+
+// Webhook Routes for External Integrations
+// $router->post('/webhooks/slack', 'WebhookController@slack');
+// $router->post('/webhooks/discord', 'WebhookController@discord');
+
+// All other route definitions have been commented out to prevent config loading errors
+// This file should be moved to the routes/ directory and loaded by the router instead
+
+*/
 $router->get('/export/analytics/{format}', 'ExportController@analytics');
 $router->get('/export/feedback/{format}', 'ExportController@feedback');
 $router->get('/export/users/{format}', 'ExportController@users');

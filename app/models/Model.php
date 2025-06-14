@@ -1,49 +1,29 @@
 <?php
 namespace App\Models;
 
-use PDO;
-use PDOException;
+use App\Core\Database\QueryBuilder;
 
 /**
  * Base Model class
  */
-class Model
+abstract class Model
 {
-    /** @var PDO Database connection */
-    protected static $db;
-    
     /** @var string Table name */
     protected static $table = '';
     
     /** @var string Primary key */
     protected static $primaryKey = 'id';
-    
-    /**
-     * Get database connection
-     */
-    protected static function getDb()
+
+    /** @var QueryBuilder Query builder instance */
+    protected $queryBuilder;
+
+    public function __construct()
     {
-        if (!self::$db) {
-            $config = require __DIR__ . '/../../app/config/database.php';
-            
-            try {
-                if ($config['driver'] === 'sqlite') {
-                    $dsn = "sqlite:{$config['database']}";
-                    self::$db = new PDO($dsn);
-                } else {
-                    $dsn = "mysql:host={$config['host']};dbname={$config['database']};charset={$config['charset']}";
-                    self::$db = new PDO($dsn, $config['username'], $config['password'], $config['options']);
-                }
-                
-                self::$db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-                self::$db->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_OBJ);
-                
-            } catch (PDOException $e) {
-                throw new \Exception("Database connection failed: " . $e->getMessage());
-            }
+        if (empty(static::$table)) {
+            throw new \Exception("Table name not defined for model " . get_called_class());
         }
-        
-        return self::$db;
+        $this->queryBuilder = new QueryBuilder();
+        $this->queryBuilder->table(static::$table);
     }
     
     /**
@@ -51,10 +31,8 @@ class Model
      */
     public static function find($id)
     {
-        $db = self::getDb();
-        $stmt = $db->prepare("SELECT * FROM " . static::$table . " WHERE " . static::$primaryKey . " = ?");
-        $stmt->execute([$id]);
-        return $stmt->fetch();
+        $instance = new static();
+        return $instance->queryBuilder->where(static::$primaryKey, '=', $id)->first();
     }
     
     /**
@@ -62,9 +40,8 @@ class Model
      */
     public static function all()
     {
-        $db = self::getDb();
-        $stmt = $db->query("SELECT * FROM " . static::$table);
-        return $stmt->fetchAll();
+        $instance = new static();
+        return $instance->queryBuilder->get();
     }
     
     /**
@@ -72,18 +49,8 @@ class Model
      */
     public static function create(array $data)
     {
-        $db = self::getDb();
-        $columns = implode(', ', array_keys($data));
-        $placeholders = ':' . implode(', :', array_keys($data));
-        
-        $sql = "INSERT INTO " . static::$table . " ($columns) VALUES ($placeholders)";
-        $stmt = $db->prepare($sql);
-        
-        if ($stmt->execute($data)) {
-            return $db->lastInsertId();
-        }
-        
-        return false;
+        $instance = new static();
+        return $instance->queryBuilder->insert($data);
     }
     
     /**
@@ -91,18 +58,8 @@ class Model
      */
     public static function update($id, array $data)
     {
-        $db = self::getDb();
-        $set = [];
-        
-        foreach (array_keys($data) as $key) {
-            $set[] = "$key = :$key";
-        }
-        
-        $sql = "UPDATE " . static::$table . " SET " . implode(', ', $set) . " WHERE " . static::$primaryKey . " = :id";
-        $stmt = $db->prepare($sql);
-        $data['id'] = $id;
-        
-        return $stmt->execute($data);
+        $instance = new static();
+        return $instance->queryBuilder->where(static::$primaryKey, '=', $id)->update($data);
     }
     
     /**
@@ -110,9 +67,8 @@ class Model
      */
     public static function delete($id)
     {
-        $db = self::getDb();
-        $stmt = $db->prepare("DELETE FROM " . static::$table . " WHERE " . static::$primaryKey . " = ?");
-        return $stmt->execute([$id]);
+        $instance = new static();
+        return $instance->queryBuilder->where(static::$primaryKey, '=', $id)->delete();
     }
     
     /**
@@ -120,9 +76,7 @@ class Model
      */
     public static function query($sql, $params = [])
     {
-        $db = self::getDb();
-        $stmt = $db->prepare($sql);
-        $stmt->execute($params);
-        return $stmt;
+        $instance = new static();
+        return $instance->queryBuilder->raw($sql, $params);
     }
 }

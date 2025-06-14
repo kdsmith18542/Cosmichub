@@ -3,13 +3,16 @@ namespace App\Utils;
 
 use PDO;
 use PDOException;
+use Psr\Log\LoggerInterface;
 
 class TokenManager {
     private $db;
     private $tokenExpiry = 86400; // 24 hours in seconds
+    private $logger;
 
-    public function __construct($db) {
+    public function __construct($db, LoggerInterface $logger) {
         $this->db = $db;
+        $this->logger = $logger;
     }
 
     /**
@@ -24,7 +27,7 @@ class TokenManager {
             // Convert to URL-safe base64
             return rtrim(strtr(base64_encode($randomBytes), '+/', '-_'), '=');
         } catch (\Exception $e) {
-            error_log("Token generation failed: " . $e->getMessage());
+            $this->logger->error("Token generation failed: " . $e->getMessage());
             throw new \Exception("Failed to generate secure token");
         }
     }
@@ -67,7 +70,7 @@ class TokenManager {
             return $token;
             
         } catch (PDOException $e) {
-            error_log("Failed to create token: " . $e->getMessage());
+            $this->logger->error("Failed to create token: " . $e->getMessage());
             throw new \Exception("Failed to create verification token");
         }
     }
@@ -105,7 +108,7 @@ class TokenManager {
             return $tokenData ?: false;
             
         } catch (PDOException $e) {
-            error_log("Token validation failed: " . $e->getMessage());
+            $this->logger->error("Token validation failed: " . $e->getMessage());
             return false;
         }
     }
@@ -128,7 +131,7 @@ class TokenManager {
             return $stmt->execute([':token' => $token]);
             
         } catch (PDOException $e) {
-            error_log("Failed to mark token as used: " . $e->getMessage());
+            $this->logger->error("Failed to mark token as used: " . $e->getMessage());
             return false;
         }
     }
@@ -151,7 +154,7 @@ class TokenManager {
             return $stmt->rowCount();
             
         } catch (PDOException $e) {
-            error_log("Failed to clean up expired tokens: " . $e->getMessage());
+            $this->logger->error("Failed to clean up expired tokens: " . $e->getMessage());
             return 0;
         }
     }
@@ -187,7 +190,7 @@ class TokenManager {
             return $stmt->fetchAll(PDO::FETCH_ASSOC);
             
         } catch (PDOException $e) {
-            error_log("Failed to get user tokens: " . $e->getMessage());
+            $this->logger->error("Failed to get user tokens: " . $e->getMessage());
             return [];
         }
     }

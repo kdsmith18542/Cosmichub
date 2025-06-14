@@ -1,10 +1,32 @@
 <?php
 
-class SitemapController {
-    private $db;
+use App\Core\Controller\Controller;
+use App\Services\CelebrityReportService;
+use App\Services\ArchetypeService;
+use App\Services\ShareableService;
+use App\Services\DailyVibeService;
+use Psr\Log\LoggerInterface;
+
+/**
+ * SitemapController
+ * 
+ * Refactored to use service layer architecture following the refactoring plan.
+ * Now uses dependency injection instead of direct database access.
+ */
+class SitemapController extends Controller {
+    private $celebrityReportService;
+    private $archetypeService;
+    private $shareableService;
+    private $dailyVibeService;
+    private $logger;
     
-    public function __construct() {
-        $this->db = Database::getInstance()->getConnection();
+    public function __construct(LoggerInterface $logger) {
+        parent::__construct();
+        $this->celebrityReportService = $this->container->get(CelebrityReportService::class);
+        $this->archetypeService = $this->container->get(ArchetypeService::class);
+        $this->shareableService = $this->container->get(ShareableService::class);
+        $this->dailyVibeService = $this->container->get(DailyVibeService::class);
+        $this->logger = $logger;
     }
     
     public function generateSitemap() {
@@ -73,14 +95,7 @@ class SitemapController {
     
     private function addCelebrityReports($xml, $urlset, $baseUrl) {
         try {
-            $stmt = $this->db->prepare("
-                SELECT slug, updated_at 
-                FROM celebrity_reports 
-                WHERE is_published = 1 
-                ORDER BY updated_at DESC
-            ");
-            $stmt->execute();
-            $celebrities = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $celebrities = $this->celebrityReportService->getPublishedReports();
             
             foreach ($celebrities as $celebrity) {
                 $url = $baseUrl . '/celebrity-reports/' . $celebrity['slug'];
@@ -88,19 +103,13 @@ class SitemapController {
                 $this->addUrl($xml, $urlset, $url, '0.8', 'monthly', $lastmod);
             }
         } catch (Exception $e) {
-            error_log('Error adding celebrity reports to sitemap: ' . $e->getMessage());
+            $this->logger->error('Error adding celebrity reports to sitemap: ' . $e->getMessage());
         }
     }
     
     private function addArchetypes($xml, $urlset, $baseUrl) {
         try {
-            $stmt = $this->db->prepare("
-                SELECT slug, updated_at 
-                FROM archetypes 
-                ORDER BY updated_at DESC
-            ");
-            $stmt->execute();
-            $archetypes = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $archetypes = $this->archetypeService->getAllArchetypes();
             
             foreach ($archetypes as $archetype) {
                 $url = $baseUrl . '/archetypes/' . $archetype['slug'];
@@ -108,22 +117,13 @@ class SitemapController {
                 $this->addUrl($xml, $urlset, $url, '0.6', 'monthly', $lastmod);
             }
         } catch (Exception $e) {
-            error_log('Error adding archetypes to sitemap: ' . $e->getMessage());
+            $this->logger->error('Error adding archetypes to sitemap: ' . $e->getMessage());
         }
     }
     
     private function addPublicShareables($xml, $urlset, $baseUrl) {
         try {
-            $stmt = $this->db->prepare("
-                SELECT share_url, updated_at 
-                FROM shareables 
-                WHERE is_public = 1 
-                AND (expires_at IS NULL OR expires_at > NOW())
-                ORDER BY updated_at DESC 
-                LIMIT 1000
-            ");
-            $stmt->execute();
-            $shareables = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $shareables = $this->shareableService->getPublicShareables(1000);
             
             foreach ($shareables as $shareable) {
                 $url = $baseUrl . '/shareables/view/' . $shareable['share_url'];
@@ -131,20 +131,13 @@ class SitemapController {
                 $this->addUrl($xml, $urlset, $url, '0.4', 'weekly', $lastmod);
             }
         } catch (Exception $e) {
-            error_log('Error adding shareables to sitemap: ' . $e->getMessage());
+            $this->logger->error('Error adding shareables to sitemap: ' . $e->getMessage());
         }
     }
     
     private function addDailyVibes($xml, $urlset, $baseUrl) {
         try {
-            $stmt = $this->db->prepare("
-                SELECT DATE(date) as vibe_date, updated_at 
-                FROM daily_vibes 
-                WHERE date >= DATE_SUB(NOW(), INTERVAL 30 DAY)
-                ORDER BY date DESC
-            ");
-            $stmt->execute();
-            $vibes = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $vibes = $this->dailyVibeService->getRecentVibes(30);
             
             foreach ($vibes as $vibe) {
                 $url = $baseUrl . '/daily-vibe/' . $vibe['vibe_date'];
@@ -152,7 +145,7 @@ class SitemapController {
                 $this->addUrl($xml, $urlset, $url, '0.3', 'daily', $lastmod);
             }
         } catch (Exception $e) {
-            error_log('Error adding daily vibes to sitemap: ' . $e->getMessage());
+            $this->logger->error('Error adding daily vibes to sitemap: ' . $e->getMessage());
         }
     }
     

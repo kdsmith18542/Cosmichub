@@ -1,50 +1,78 @@
 <?php
 namespace App\Controllers;
 
-use App\Libraries\Controller;
+use App\Core\Controller\Controller;
+use App\Core\Http\Request;
+use App\Core\Http\Response;
 use App\Libraries\PdfGenerator;
 use App\Helpers\AstrologyHelper;
 use App\Controllers\RarityScoreController;
-use App\Models\CelebrityReport;
+use App\Services\CelebrityReportService;
+use App\Services\UserService;
+use App\Services\AstrologyService;
+use App\Services\RarityScoreService;
+use App\Services\AuthService; // Added AuthService
+use Exception;
+use DateTime;
+use Carbon\Carbon; // Added Carbon for date handling
 
 class HomeController extends Controller
 {
+    private CelebrityReportService $celebrityReportService;
+    private UserService $userService;
+    private AstrologyService $astrologyService;
+    private RarityScoreService $rarityScoreService;
+    private AuthService $authService; // Added AuthService property
+
+    public function __construct(
+        CelebrityReportService $celebrityReportService,
+        UserService $userService,
+        AstrologyService $astrologyService,
+        RarityScoreService $rarityScoreService,
+        AuthService $authService // Injected AuthService
+    ) {
+        parent::__construct();
+        $this->celebrityReportService = $celebrityReportService;
+        $this->userService = $userService;
+        $this->astrologyService = $astrologyService;
+        $this->rarityScoreService = $rarityScoreService;
+        $this->authService = $authService; // Assigned injected AuthService
+    }
+    
     /**
      * Display the viral landing page
      */
-    public function index()
+    public function index(Request $request, Response $response): Response
     {
         $title = 'Cosmic Hub - Reveal Your Blueprint';
         $description = 'Discover your unique cosmic identity in seconds. Get your personalized astrology and numerology snapshot instantly.';
         
         // Use no layout for the viral landing page since it's a standalone full-screen experience
-        return $this->view('home/viral-landing', compact('title', 'description'), null);
+        return $response->render('home/viral-landing', compact('title', 'description'), ['layout' => null]); // Assuming render can take layout option
     }
 
     /**
      * Generate instant cosmic snapshot from birthday
      */
-    public function generateSnapshot()
+    public function generateSnapshot(Request $request, Response $response): Response
     {
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            redirect('/');
-            return;
+        if (!$request->isPost()) {
+            return $response->redirect('/');
         }
 
         try {
             // Get and validate input
-            $month = (int)($_POST['month'] ?? 0);
-            $day = (int)($_POST['day'] ?? 0);
-            $year = (int)($_POST['year'] ?? 0);
+            $month = (int)$request->input('month', 0);
+            $day = (int)$request->input('day', 0);
+            $year = (int)$request->input('year', 0);
 
             if (!$this->isValidDate($month, $day, $year)) {
-                $_SESSION['error'] = 'Please enter a valid birth date.';
-                redirect('/');
-                return;
+                $request->flash('error', 'Please enter a valid birth date.');
+                return $response->redirect('/');
             }
 
             $birthDate = sprintf('%04d-%02d-%02d', $year, $month, $day);
-            $dateObj = new \DateTime($birthDate);
+            $dateObj = Carbon::createFromDate($year, $month, $day); // Using Carbon
 
             // Generate cosmic snapshot data
             $snapshotData = $this->generateCosmicSnapshot($dateObj, $month, $day, $year);
@@ -53,38 +81,37 @@ class HomeController extends Controller
             $slug = $this->generateBirthdaySlug($month, $day, $year);
 
             // Store snapshot in session for the generated page
-            $_SESSION['cosmic_snapshot_' . $slug] = $snapshotData;
+            $request->setSession('cosmic_snapshot_' . $slug, $snapshotData);
 
             // Redirect to the permanent snapshot page
-            redirect('/cosmic-snapshot/' . $slug);
+            return $response->redirect('/cosmic-snapshot/' . $slug);
 
         } catch (Exception $e) {
-            error_log('Error generating cosmic snapshot: ' . $e->getMessage());
-            $_SESSION['error'] = 'Unable to generate your cosmic snapshot. Please try again.';
-            redirect('/');
+            $this->logger->error('Error generating cosmic snapshot: ' . $e->getMessage());
+            $request->flash('error', 'Unable to generate your cosmic snapshot. Please try again.');
+            return $response->redirect('/');
         }
     }
 
     /**
      * Display the cosmic snapshot page
      */
-    public function showSnapshot($slug)
+    public function showSnapshot(Request $request, Response $response, $slug): Response
     {
         // Try to get snapshot from session first
-        $snapshotData = $_SESSION['cosmic_snapshot_' . $slug] ?? null;
+        $snapshotData = $request->getSession('cosmic_snapshot_' . $slug);
 
         if (!$snapshotData) {
             // If not in session, try to regenerate from slug
             $dateInfo = $this->parseBirthdaySlug($slug);
             if ($dateInfo) {
-                $dateObj = new \DateTime(sprintf('%04d-%02d-%02d', $dateInfo['year'], $dateInfo['month'], $dateInfo['day']));
+                $dateObj = Carbon::createFromDate($dateInfo['year'], $dateInfo['month'], $dateInfo['day']); // Using Carbon
                 $snapshotData = $this->generateCosmicSnapshot($dateObj, $dateInfo['month'], $dateInfo['day'], $dateInfo['year']);
             }
         }
 
         if (!$snapshotData) {
-            $this->view('home/snapshot-not-found', ['title' => 'Cosmic Snapshot Not Found']);
-            return;
+            return $response->render('home/snapshot-not-found', ['title' => 'Cosmic Snapshot Not Found']);
         }
 
         // Check if user is logged in for unlock options
@@ -94,16 +121,15 @@ class HomeController extends Controller
         $hasEnoughReferrals = false;
         $remainingReferrals = 3;
 
-        if (isset($_SESSION['user_id'])) {
-            require_once __DIR__ . '/../models/User.php';
-            require_once __DIR__ . '/../models/Referral.php';
-            $user = \App\Models\User::findById($_SESSION['user_id']);
+        // Get authenticated user using AuthService (now injected)
+        if ($this->authService->isLoggedIn($request)) {
+            $user = $this->authService->getCurrentUser($request);
             if ($user && method_exists($user, 'hasActiveSubscription')) {
                 $hasActiveSubscription = $user->hasActiveSubscription();
             }
 
             // Create referral for unlocking premium content
-            $referral = \App\Models\Referral::createForUser($user->id, 'cosmic-snapshot-unlock');
+            $referral = $this->userService->createReferralForUser($user->id, 'cosmic-snapshot-unlock');
             $referralUrl = $referral->getReferralUrl();
             $hasEnoughReferrals = $referral->hasEnoughReferrals(3);
             $remainingReferrals = max(0, 3 - $referral->successful_referrals);
@@ -120,27 +146,25 @@ class HomeController extends Controller
             'slug' => $slug
         ];
 
-        $this->view('home/cosmic-snapshot', $data);
+        return $response->render('home/cosmic-snapshot', $data);
     }
 
     /**
      * Generate cosmic snapshot data
      */
-    private function generateCosmicSnapshot($dateObj, $month, $day, $year)
+    private function generateCosmicSnapshot(Carbon $dateObj, $month, $day, $year) // Type hint Carbon
     {
-        require_once __DIR__ . '/../helpers/AstrologyHelper.php';
-        
         // 1. Cosmic Identity
-        $westernZodiac = \App\Helpers\AstrologyHelper::getWesternZodiacSign($month, $day);
-        $chineseZodiac = \App\Helpers\AstrologyHelper::getChineseZodiacSign($year);
-        $birthstone = \App\Helpers\AstrologyHelper::getBirthstone($month);
-        $birthFlower = \App\Helpers\AstrologyHelper::getBirthFlower($month);
+        $westernZodiac = $this->astrologyService->getWesternZodiacSign($month, $day);
+        $chineseZodiac = $this->astrologyService->getChineseZodiacSign($year);
+        $birthstone = $this->astrologyService->getBirthstone($month);
+        $birthFlower = $this->astrologyService->getBirthFlower($month);
 
         // 2. Rarity Score
-        $rarityController = new RarityScoreController();
-        $rarityScore = $rarityController->calculateRarityScore($dateObj->format('Y-m-d'));
-        $rarityDescription = $rarityController->getRarityDescription($rarityScore);
-        $rarityColor = $rarityController->getRarityColor($rarityScore);
+         $rarityResult = $this->rarityScoreService->calculateRarityScore($dateObj->format('Y-m-d'));
+         $rarityScore = $rarityResult['score'];
+         $rarityDescription = $rarityResult['description'];
+         $rarityColor = $rarityResult['color'];
 
         // 3. Day in History (simplified for now)
         $dayInHistory = $this->getDayInHistory($month, $day);
@@ -193,7 +217,7 @@ class HomeController extends Controller
     private function getFamousBirthdayTwin($month, $day)
     {
         // Try to find a celebrity from the database
-        $celebrity = CelebrityReport::getByBirthDate($month, $day);
+        $celebrity = $this->celebrityReportService->getCelebrityByBirthDate($month, $day);
         
         if ($celebrity && count($celebrity) > 0) {
             return $celebrity[0]->name;
@@ -240,34 +264,33 @@ class HomeController extends Controller
     /**
      * Download PDF of cosmic snapshot
      */
-    public function downloadPDF($slug)
+    public function downloadPDF(Request $request, $slug): Response
     {
         try {
             // Get snapshot data
-            $snapshotData = $_SESSION['cosmic_snapshot_' . $slug] ?? null;
+            $snapshotData = $request->getSession('cosmic_snapshot_' . $slug);
             
             if (!$snapshotData) {
                 // Try to regenerate from slug
                 $dateInfo = $this->parseBirthdaySlug($slug);
                 if ($dateInfo) {
-                    $dateObj = new \DateTime(sprintf('%04d-%02d-%02d', $dateInfo['year'], $dateInfo['month'], $dateInfo['day']));
+                    $dateObj = new DateTime(sprintf('%04d-%02d-%02d', $dateInfo['year'], $dateInfo['month'], $dateInfo['day']));
                     $snapshotData = $this->generateCosmicSnapshot($dateObj, $dateInfo['month'], $dateInfo['day'], $dateInfo['year']);
                 }
             }
             
             if (!$snapshotData) {
-                $_SESSION['error'] = 'Cosmic snapshot not found.';
-                redirect('/');
-                return;
+                $request->flash('error', 'Cosmic snapshot not found.');
+                return $this->redirect('/');
             }
             
             // Check if user is logged in and has credits
             $user = null;
             $pdfCost = 2; // Cost in credits for PDF download
             
-            if (isset($_SESSION['user_id'])) {
-                require_once __DIR__ . '/../models/User.php';
-                $user = \App\Models\User::findById($_SESSION['user_id']);
+            $userId = $request->getSession('user_id');
+            if ($userId) {
+                $user = $this->userService->getUserById($userId);
             }
             
             // Check if user has enough credits or active subscription
@@ -277,19 +300,17 @@ class HomeController extends Controller
             }
             
             if (!$hasActiveSubscription && (!$user || $user->credits < $pdfCost)) {
-                $_SESSION['error'] = 'Please purchase credits or unlock the full report to download PDF. PDF download costs ' . $pdfCost . ' credits.';
-                redirect('/cosmic-snapshot/' . $slug);
-                return;
+                $request->flash('error', 'Please purchase credits or unlock the full report to download PDF. PDF download costs ' . $pdfCost . ' credits.');
+                return $this->redirect('/cosmic-snapshot/' . $slug);
             }
             
             // Deduct credits if not subscription user
             if (!$hasActiveSubscription && $user && $user->credits >= $pdfCost) {
                 if ($user->deductCredits($pdfCost)) {
-                    $_SESSION['success'] = $pdfCost . ' credits deducted for PDF download.';
+                    $request->flash('success', $pdfCost . ' credits deducted for PDF download.');
                 } else {
-                    $_SESSION['error'] = 'Failed to process credit deduction.';
-                    redirect('/cosmic-snapshot/' . $slug);
-                    return;
+                    $request->flash('error', 'Failed to process credit deduction.');
+                    return $this->redirect('/cosmic-snapshot/' . $slug);
                 }
             }
             
@@ -297,14 +318,14 @@ class HomeController extends Controller
             $html = $this->generatePDFContent($snapshotData);
             
             // Generate PDF
-            $pdfGenerator = new PdfGenerator();
+            $pdfGenerator = $this->resolve(PdfGenerator::class);
             $filename = 'Cosmic_Snapshot_' . $slug . '_CosmicHub.pdf';
             $pdfGenerator->generateFromHtml($html, $filename);
             
-        } catch (\Exception $e) {
-            error_log('PDF Generation Error: ' . $e->getMessage());
-            $_SESSION['error'] = 'Could not generate PDF: ' . $e->getMessage();
-            redirect('/cosmic-snapshot/' . $slug);
+        } catch (Exception $e) {
+            $this->logger->error('PDF Generation Error: ' . $e->getMessage());
+            $request->flash('error', 'Could not generate PDF: ' . $e->getMessage());
+            return $this->redirect('/cosmic-snapshot/' . $slug);
         }
     }
     

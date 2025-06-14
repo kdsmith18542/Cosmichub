@@ -5,20 +5,49 @@ namespace App\Services;
 use PDO;
 use Exception;
 use App\Models\User;
-use App\Models\UserToken;
 use App\Utils\Mailer;
 use App\Libraries\Config;
+use App\Services\UserTokenService;
+use App\Repositories\UserRepository;
+use App\Repositories\UserTokenRepository;
+use DateTime;
+use Psr\Log\LoggerInterface;
 
 class EmailService
 {
     /**
      * @var Mailer
      */
-    protected $mailer;
+    private $mailer;
+    
+    /**
+     * @var UserTokenService
+     */
+    private $userTokenService;
+    
+    /**
+     * @var UserRepository
+     */
+    private $userRepository;
+    
+    /**
+     * @var UserTokenRepository
+     */
+    private $userTokenRepository;
+    private $logger;
 
-    public function __construct()
-    {
-        $this->mailer = new Mailer();
+    public function __construct(
+        Mailer $mailer = null,
+        UserTokenService $userTokenService = null,
+        UserRepository $userRepository = null,
+        UserTokenRepository $userTokenRepository = null,
+        LoggerInterface $logger = null
+    ) {
+        $this->mailer = $mailer ?? new Mailer();
+        $this->userTokenService = $userTokenService ?? new UserTokenService();
+        $this->userRepository = $userRepository ?? new UserRepository();
+        $this->userTokenRepository = $userTokenRepository ?? new UserTokenRepository();
+        $this->logger = $logger;
     }
     /**
      * Send email verification notification
@@ -49,48 +78,29 @@ class EmailService
             $expiresAt = new \DateTime('+2 hours'); // Reduced from 24 to 2 hours for security
             
             // Invalidate all previous unused tokens for this user
-            UserToken::where('user_id', $user->id)
-                ->where('type', 'email_verification')
-                ->where('used_at', null)
-                ->update(['used_at' => date('Y-m-d H:i:s'), 'invalidated_at' => date('Y-m-d H:i:s')]);
+            $this->userTokenRepository->invalidateUnusedTokensByUserAndType(
+                $user->id,
+                'email_verification'
+            );
 
-            // Clean up old tokens
-            $this->cleanupOldTokens($user->id);
-
-            // Create new verification token
-            $userToken = new UserToken([
-                'user_id' => $user->id,
-                'token' => password_hash($token, PASSWORD_DEFAULT), // Store hashed token
-                'type' => 'email_verification',
-                'expires_at' => $expiresAt->format('Y-m-d H:i:s'),
-                'used_at' => null,
-                'attempts' => 0
-            ]);
-
-            if (!$userToken->save()) {
-                throw new Exception('Failed to save verification token');
-            }
-            
-            if (!$userToken) {
-                $userToken = new UserToken([
-                    'user_id' => $user->id,
-                    'token' => $token,
-                    'type' => 'email_verification',
-                    'expires_at' => $expiresAt->format('Y-m-d H:i:s'),
-                    'used_at' => null
-                ]);
-                
-                if (!$userToken->save()) {
-                    throw new Exception('Failed to save verification token');
-                }
-            } else {
-                $token = $userToken->token; // Use existing valid token
-            }
+            // Create new verification token using service
+            $userToken = $this->userTokenService->createEmailVerificationToken(
+                $user->id,
+                $token,
+                $expiresAt
+            );
             
             // Update user's verification attempt timestamp
-            $user->email_verification_sent_at = date('Y-m-d H:i:s');
-            $user->email_verification_attempts = ($user->email_verification_attempts ?? 0) + 1;
-            $user->save();
+            $new_email_verification_sent_at = date('Y-m-d H:i:s');
+            $new_email_verification_attempts = ($user->email_verification_attempts ?? 0) + 1;
+            $this->userRepository->update($user->id, [
+                'email_verification_sent_at' => $new_email_verification_sent_at,
+                'email_verification_attempts' => $new_email_verification_attempts
+            ]);
+
+            // Refresh user object to get updated values if needed later in this method
+            // However, in this specific case, the updated user object is not used further in this method after this block.
+            // If it were, we would call: $user = $this->userRepository->findById($user->id);
             
             // Build verification URL using site URL from config
             $siteUrl = rtrim(Config::get('app.url'), '/');
@@ -123,7 +133,7 @@ class EmailService
             );
             
         } catch (Exception $e) {
-            error_log('Failed to send verification email: ' . $e->getMessage());
+            $this->logger->error('Failed to send verification email: ' . $e->getMessage());
             return false;
         }
     }
@@ -165,39 +175,7 @@ class EmailService
         }
     }
 
-    /**
-     * Clean up old verification tokens for a user
-     *
-     * @param int $userId
-     * @return void
-     */
-    protected function cleanupOldTokens(int $userId): void
-    {
-        try {
-            // Delete tokens older than 48 hours
-            UserToken::where('user_id', $userId)
-                ->where('type', 'email_verification')
-                ->where('created_at', '<', date('Y-m-d H:i:s', strtotime('-48 hours')))
-                ->delete();
-
-            // Delete all but the last 5 tokens for this user
-            $tokens = UserToken::where('user_id', $userId)
-                ->where('type', 'email_verification')
-                ->orderBy('created_at', 'desc')
-                ->get();
-
-            if ($tokens->count() > 5) {
-                $tokensToKeep = $tokens->take(5)->pluck('id')->toArray();
-                UserToken::where('user_id', $userId)
-                    ->where('type', 'email_verification')
-                    ->whereNotIn('id', $tokensToKeep)
-                    ->delete();
-            }
-        } catch (\Exception $e) {
-            // Log error but don't throw - this is a cleanup operation
-            error_log('Failed to cleanup old tokens: ' . $e->getMessage());
-        }
-    }
+    // Token cleanup is now handled by UserTokenService
 
     /**
      * Generate a unique reference ID for the verification email
@@ -259,7 +237,7 @@ class EmailService
             );
             
         } catch (Exception $e) {
-            error_log('Failed to send password reset email: ' . $e->getMessage());
+            $this->logger->error('Failed to send password reset email: ' . $e->getMessage());
             return false;
         }
     }

@@ -2,110 +2,117 @@
 
 namespace App\Controllers;
 
-use App\Libraries\Controller;
-use App\Models\CelebrityReport;
-use App\Models\Archetype;
-use App\Helpers\AstrologyHelper;
-use App\Controllers\RarityScoreController; // For rarity calculations
-use App\Services\GeminiService; // For Cosmic Significance Blurb
+use App\Core\Controller\Controller;
+use App\Core\Http\Request;
+use App\Core\Http\Response;
+use App\Services\CelebrityReportService;
+use App\Services\ArchetypeService;
+use App\Services\RarityScoreService;
+use App\Services\AstrologyService;
+use Psr\Log\LoggerInterface;
 
 class CelebrityReportController extends Controller
 {
-    public function __construct()
+    private CelebrityReportService $celebrityReportService;
+    private ArchetypeService $archetypeService;
+    private RarityScoreService $rarityScoreService;
+    private AstrologyService $astrologyService;
+    private LoggerInterface $logger;
+    
+    public function __construct(LoggerInterface $logger)
     {
         parent::__construct();
+        $this->logger = $logger;
+        $this->celebrityReportService = $this->resolve(CelebrityReportService::class);
+        $this->archetypeService = $this->resolve(ArchetypeService::class);
+        $this->rarityScoreService = $this->resolve(RarityScoreService::class);
+        $this->astrologyService = $this->resolve(AstrologyService::class);
     }
 
     /**
      * Display a listing of celebrity reports
      */
-    public function index()
+    public function index(Request $request): Response
     {
-        $celebrities = CelebrityReport::orderBy('name', 'ASC')->get();
-        $this->view('celebrity-reports/index', ['celebrities' => $celebrities]);
+        $celebrities = $this->celebrityReportService->getAllCelebrities();
+        return $this->view('celebrity-reports/index', ['celebrities' => $celebrities]);
     }
 
     /**
      * Show a specific celebrity report
      */
-    public function show($slug)
+    public function show(Request $request, $slug): Response
     {
-        $celebrity = CelebrityReport::findBySlug($slug);
+        $celebrity = $this->celebrityReportService->getCelebrityBySlug($slug);
         
         if (!$celebrity) {
-            flash('error', 'Celebrity report not found.');
-            redirect('/celebrity-reports');
-            return;
+            $request->flash('error', 'Celebrity report not found.');
+            return $this->redirect('/celebrity-reports');
         }
 
-        $this->view('celebrity-reports/show', ['celebrity' => $celebrity]);
+        return $this->view('celebrity-reports/show', ['celebrity' => $celebrity]);
     }
 
     /**
      * Show the form for creating a new celebrity report
      */
-    public function create()
+    public function create(Request $request): Response
     {
         if (!is_admin()) {
-            flash('error', 'Unauthorized access.');
-            redirect('/');
-            return;
+            $request->flash('error', 'Unauthorized access.');
+            return $this->redirect('/');
         }
-        $archetypes = Archetype::orderBy('name')->get();
-        $this->view('celebrity-reports/create', ['archetypes' => $archetypes]);
+        $archetypes = $this->celebrityReportService->getAllArchetypes();
+        return $this->view('celebrity-reports/create', ['archetypes' => $archetypes]);
     }
 
     /**
      * Store a newly created celebrity report
      */
-    public function store()
+    public function store(Request $request): Response
     {
         if (!is_admin()) {
-            flash('error', 'Unauthorized access.');
-            redirect('/');
-            return;
+            $request->flash('error', 'Unauthorized access.');
+            return $this->redirect('/');
         }
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            redirect('/celebrity-reports/create');
-            return;
+        if (!$request->isPost()) {
+            return $this->redirect('/celebrity-reports/create');
         }
         $errors = [];
-        $name = sanitize_input($_POST['name'] ?? '');
-if (empty($name)) {
+        $name = sanitize_input($request->input('name', ''));
+        if (empty($name)) {
             $errors[] = 'Name is required.';
         }
-        $birth_date = sanitize_input($_POST['birth_date'] ?? '');
-if (empty($birth_date)) {
+        $birth_date = sanitize_input($request->input('birth_date', ''));
+        if (empty($birth_date)) {
             $errors[] = 'Birth date is required.';
         } elseif (!$this->isValidDate($birth_date)) {
             $errors[] = 'Please enter a valid birth date.';
         }
         if (!empty($errors)) {
-            flash('error', implode(' ', $errors));
-            redirect('/celebrity-reports/create');
-            return;
+            $request->flash('error', implode(' ', $errors));
+            return $this->redirect('/celebrity-reports/create');
         }
         try {
             // Pass celebrity name to generateReportContent for more personalized blurb
             $reportData = $this->generateReportContent($birth_date, $name);
-            $celebrity = new CelebrityReport();
-            $celebrity->name = $name;
-            $celebrity->birth_date = $birth_date;
-            $celebrity->report_content = json_encode($reportData);
-            $celebrity->slug = CelebrityReport::generateSlug($name);
-            // The report_content is already an array from generateReportContent
-            // $celebrity->report_content = json_encode($reportData); // No longer needed if $reportData is already the final array for JSON
-            $celebrity->save(); // Save once to get an ID
+            $celebrityData = [
+                 'name' => $name,
+                 'birth_date' => $birth_date,
+                 'report_content' => json_encode($reportData),
+                 'slug' => $this->celebrityReportService->generateSlug($name)
+             ];
+             $celebrity = $this->celebrityReportService->createCelebrity($celebrityData); // Save once to get an ID
 
             // Handle Archetype Association and update report_content
-            $archetype_ids = $_POST['archetype_ids'] ?? [];
+            $archetype_ids = $request->input('archetype_ids', []);
             $primaryArchetypeData = null;
             if (!empty($archetype_ids) && is_array($archetype_ids)) {
                 $sanitized_archetype_ids = array_map('intval', $archetype_ids);
                 $celebrity->archetypes()->sync($sanitized_archetype_ids);
                 // Fetch the first associated archetype to embed in the report content
                 if (!empty($sanitized_archetype_ids)) {
-                    $primaryArchetype = Archetype::find($sanitized_archetype_ids[0]);
+                    $primaryArchetype = $this->celebrityReportService->getArchetypeById($sanitized_archetype_ids[0]);
                     if ($primaryArchetype) {
                         $primaryArchetypeData = [
                             'name' => $primaryArchetype->name,
@@ -120,33 +127,31 @@ if (empty($birth_date)) {
             $celebrity->report_content = json_encode($reportData); // Now encode the complete data
             $celebrity->save(); // Save again with updated report_content
 
-            flash('success', 'Celebrity report created successfully!');
-            redirect('/celebrity-reports/' . $celebrity->slug);
+            $request->flash('success', 'Celebrity report created successfully!');
+            return $this->redirect('/celebrity-reports/' . $celebrity->slug);
         } catch (\Exception $e) {
-            error_log('Error creating celebrity report: ' . $e->getMessage());
-            flash('error', 'An error occurred while creating the celebrity report.');
-            redirect('/celebrity-reports/create');
+            $this->logger->error('Error creating celebrity report: ' . $e->getMessage());
+            $request->flash('error', 'An error occurred while creating the celebrity report.');
+            return $this->redirect('/celebrity-reports/create');
         }
     }
 
     /**
      * Search celebrity reports
      */
-    public function search()
+    public function search(Request $request): Response
     {
-        if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
-            redirect('/celebrity-reports');
-            return;
+        if (!$request->isGet()) {
+            return $this->redirect('/celebrity-reports');
         }
 
-        $query = sanitize_input($_GET['q'] ?? '');
+        $query = sanitize_input($request->input('q', ''));
         if (empty($query)) {
-            redirect('/celebrity-reports');
-            return;
+            return $this->redirect('/celebrity-reports');
         }
 
-        $celebrities = CelebrityReport::searchByName($query);
-        $this->view('celebrity-reports/index', [
+        $celebrities = $this->celebrityReportService->searchByName($query);
+        return $this->view('celebrity-reports/index', [
             'celebrities' => $celebrities,
             'search_query' => $query
         ]);
@@ -155,10 +160,10 @@ if (empty($birth_date)) {
     /**
      * Get celebrity reports by birth date
      */
-    public function getByBirthDate($month, $day)
+    public function getByBirthDate(Request $request, $month, $day): Response
     {
-        $celebrities = CelebrityReport::getByBirthDate($month, $day);
-        return $this->jsonResponse(['celebrities' => $celebrities]);
+        $celebrities = $this->celebrityReportService->getCelebritiesByBirthDate($month, $day);
+        return $this->json(['celebrities' => $celebrities]);
     }
 
     /**
@@ -192,32 +197,26 @@ if (empty($birth_date)) {
             $processedHistoricalData = ['events' => [], 'births' => [], 'deaths' => []];
         } catch (\Exception $e) {
             // Log error or handle gracefully, maybe return partial report
-            error_log('Error fetching historical data for celebrity report: ' . $e->getMessage());
+            $this->logger->error('Error fetching historical data for celebrity report: ' . $e->getMessage());
             // Set empty historical data if fetching fails
             $processedHistoricalData = ['events' => [], 'births' => [], 'deaths' => []];
         }
 
         // 2. Astrological Profile
-        $westernZodiac = AstrologyHelper::getWesternZodiacSign($month, $day);
-        $chineseZodiac = AstrologyHelper::getChineseZodiacSign($year);
-        $birthstone = AstrologyHelper::getBirthstone($month);
-        $birthFlower = AstrologyHelper::getBirthFlower($month);
-        $lifePathNumberVal = AstrologyHelper::calculateLifePathNumber($birthDate);
-        $lifePathNumberDesc = AstrologyHelper::getLifePathNumberInterpretation($lifePathNumberVal);
+        $westernZodiac = $this->astrologyService->getWesternZodiacSign($month, $day);
+        $chineseZodiac = $this->astrologyService->getChineseZodiacSign($year);
+        $birthstone = $this->astrologyService->getBirthstone($month);
+        $birthFlower = $this->astrologyService->getBirthFlower($month);
+        $lifePathNumberVal = $this->astrologyService->calculateLifePathNumber($birthDate);
+        $lifePathNumberDesc = $this->astrologyService->getLifePathNumberInterpretation($lifePathNumberVal);
 
         // 3. Rarity Score Details
-        $rarityController = new RarityScoreController(); // Instantiate RarityScoreController
-        $rarityScore = $rarityController->calculateRarityScore($birthDate);
-        $rarityDescription = $rarityController->getRarityDescription($rarityScore);
-        $rarityColor = $rarityController->getRarityColor($rarityScore);
-        // Assuming getRarityExplanation exists and is public, or adapt from its logic
-        $rarityExplanation = $rarityController->getRarityExplanation($rarityScore, $rarityDescription); 
-        $rarityFactors = [
-            'month' => $rarityController->getMonthFactorDescription($month),
-            'day' => $rarityController->getDayFactorDescription($month, $day),
-            'special_date' => $rarityController->getSpecialDateDescription($month, $day),
-            'leap_year' => $rarityController->getLeapYearDescription($month, $day, $year)
-        ];
+         $rarityResult = $this->rarityScoreService->calculateRarityScore($birthDate);
+         $rarityScore = $rarityResult['score'];
+         $rarityDescription = $rarityResult['description'];
+         $rarityColor = $rarityResult['color'];
+         $rarityExplanation = $rarityResult['explanation'];
+         $rarityFactors = $rarityResult['factors'];
 
         // 4. Archetype - This would typically be linked after report creation or passed in.
         // For now, it's a placeholder in the structure. The store() method handles linking.
@@ -230,7 +229,7 @@ if (empty($birth_date)) {
             // $prompt = "Generate a brief (1-2 paragraphs) 'Cosmic Significance' blurb for someone named {$celebrityName} born on {$birthDate}, with Western Zodiac {$westernZodiac}, Chinese Zodiac {$chineseZodiac}, Life Path Number {$lifePathNumberVal}, and a birthday rarity score of {$rarityScore} ({$rarityDescription}). Highlight their unique cosmic identity.";
             // $cosmicSignificanceBlurb = $geminiService->generateCosmicSummary($prompt);
         } catch (\Exception $e) {
-            error_log('Error generating Cosmic Significance blurb: ' . $e->getMessage());
+            $this->logger->error('Error generating Cosmic Significance blurb: ' . $e->getMessage());
             // Fallback to a simpler blurb if AI fails
         }
 

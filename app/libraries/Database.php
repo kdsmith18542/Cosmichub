@@ -45,7 +45,8 @@ class Database {
                 
             } catch (PDOException $e) {
                 // Log error and rethrow
-                error_log('Database connection failed: ' . $e->getMessage());
+                $logger = container()->get(\Psr\Log\LoggerInterface::class);
+                $logger->error('Database connection failed: ' . $e->getMessage());
                 throw new PDOException('Could not connect to the database. Please try again later.');
             }
         }
@@ -102,7 +103,8 @@ class Database {
         try {
             return $this->stmt->execute();
         } catch (PDOException $e) {
-            error_log('Database error: ' . $e->getMessage());
+            $logger = container()->get(\Psr\Log\LoggerInterface::class);
+            $logger->error('Database error: ' . $e->getMessage());
             throw $e;
         }
     }
@@ -226,7 +228,8 @@ class Database {
             $stmt->execute($data);
             return self::getInstance()->lastInsertId();
         } catch (PDOException $e) {
-            error_log('Insert failed: ' . $e->getMessage());
+            $logger = container()->get(\Psr\Log\LoggerInterface::class);
+            $logger->error('Insert failed: ' . $e->getMessage());
             return false;
         }
     }
@@ -254,7 +257,8 @@ class Database {
             $stmt->execute(array_merge($data, $params));
             return $stmt->rowCount();
         } catch (PDOException $e) {
-            error_log('Update failed: ' . $e->getMessage());
+            $logger = container()->get(\Psr\Log\LoggerInterface::class);
+            $logger->error('Update failed: ' . $e->getMessage());
             return false;
         }
     }
@@ -275,7 +279,8 @@ class Database {
             $stmt->execute($params);
             return $stmt->rowCount();
         } catch (PDOException $e) {
-            error_log('Delete failed: ' . $e->getMessage());
+            $logger = container()->get(\Psr\Log\LoggerInterface::class);
+            $logger->error('Delete failed: ' . $e->getMessage());
             return false;
         }
     }

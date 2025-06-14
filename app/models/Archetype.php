@@ -3,7 +3,6 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Str;
 
 class Archetype extends Model
 {
@@ -15,7 +14,7 @@ class Archetype extends Model
 
         static::creating(function ($archetype) {
             if (empty($archetype->slug)) {
-                $archetype->slug = Str::slug($archetype->name);
+                $archetype->slug = strtolower(trim(preg_replace('/[^A-Za-z0-9-]+/', '-', $archetype->name), '-'));
             }
         });
     }

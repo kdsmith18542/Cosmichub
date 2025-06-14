@@ -2,84 +2,80 @@
 
 namespace App\Models;
 
-class Notification extends Model
+use Psr\Log\LoggerInterface;
+
+class Notification extends \App\Core\Database\Model
 {
-    protected $table = 'notifications';
-    
-    // Define the properties that can be set
+    // Table name will be inferred as 'notifications'
+    // Timestamps (created_at, updated_at) are handled by the base Model by default
+
     protected $fillable = ['user_id', 'type', 'message', 'url', 'is_read'];
-    
+
     /**
-     * Create a new notification for a user
-     * 
-     * @param int $userId The user ID
-     * @param string $type Notification type
-     * @param string $message Notification message
-     * @param string|null $url Optional URL for the notification
-     * @return int|bool The new notification ID or false on failure
+     * @var LoggerInterface
      */
-    public function createNotification($userId, $type, $message, $url = null)
+    protected static $logger;
+
+    /**
+     * Set the logger instance.
+     *
+     * @param LoggerInterface $logger
+     * @return void
+     */
+    public static function setLogger(LoggerInterface $logger): void
+    {
+        static::$logger = $logger;
+    }
+
+    /**
+     * Create a new notification for a user.
+     *
+     * @param int $userId The user ID.
+     * @param string $type Notification type.
+     * @param string $message Notification message.
+     * @param string|null $url Optional URL for the notification.
+     * @return static|null The created Notification instance or null on failure.
+     */
+    public static function createNotification(int $userId, string $type, string $message, ?string $url = null): ?static
     {
         try {
-            $data = [
+            return static::create([
                 'user_id' => $userId,
                 'type' => $type,
                 'message' => $message,
                 'url' => $url,
-                'is_read' => 0,
-                'created_at' => date('Y-m-d H:i:s')
-            ];
-            
-            $result = $this->query(
-                "INSERT INTO {$this->table} (user_id, type, message, url, is_read, created_at) 
-                VALUES (:user_id, :type, :message, :url, :is_read, :created_at)",
-                $data
-            );
-            
-            if ($result) {
-                return $this->getDb()->lastInsertId();
+                'is_read' => 0, // Default to unread
+            ]);
+        } catch (\Exception $e) {
+            if (static::$logger) {
+                static::$logger->error('Error creating notification: ' . $e->getMessage());
             }
-            
-            return false;
-        } catch (\Exception $e) {
-            error_log('Error creating notification: ' . $e->getMessage());
-            return false;
+            return null;
         }
     }
-    
+
+    // The getUnreadNotifications method has been removed as its functionality
+    // is covered by NotificationRepository::getUnread()
+
     /**
-     * Get unread notifications for a user
+     * Mark a notification as read.
+     *
+     * @param int $notificationId The ID of the notification to mark as read.
+     * @param int $userId The ID of the user who owns the notification.
+     * @return bool True if the update was successful, false otherwise.
      */
-    public function getUnreadNotifications($userId, $limit = 5)
+    public static function markNotificationAsRead(int $notificationId, int $userId): bool
     {
         try {
-            return $this->query(
-                "SELECT * FROM {$this->table} 
-                WHERE user_id = :user_id AND is_read = 0 
-                ORDER BY created_at DESC 
-                LIMIT :limit",
-                ['user_id' => $userId, 'limit' => (int)$limit],
-                \PDO::FETCH_OBJ
-            );
+            $updatedRows = static::where('id', $notificationId)
+                                 ->where('user_id', $userId)
+                                 ->update(['is_read' => 1]);
+            return $updatedRows > 0;
         } catch (\Exception $e) {
-            error_log('Error getting notifications: ' . $e->getMessage());
-            return [];
-        }
-    }
-    
-    /**
-     * Mark a notification as read
-     */
-    public function markAsRead($notificationId, $userId)
-    {
-        try {
-            return $this->query(
-                "UPDATE {$this->table} SET is_read = 1 
-                WHERE id = :id AND user_id = :user_id",
-                ['id' => $notificationId, 'user_id' => $userId]
-            );
-        } catch (\Exception $e) {
-            error_log('Error marking notification as read: ' . $e->getMessage());
+            // Log error
+            if (static::$logger) {
+                static::$logger->error('Error marking notification as read: ' . $e->getMessage());
+            }
             return false;
         }
     }

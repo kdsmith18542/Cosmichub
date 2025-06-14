@@ -5,16 +5,21 @@
  * Handles all database operations for the subscription_items table.
  */
 
+namespace App\Models;
+
+use App\Core\Database\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+
 class SubscriptionItem extends Model {
     /**
      * @var string The database table name
      */
-    protected static $table = 'subscription_items';
+    // protected static $table = 'subscription_items'; // Conventionally handled by base Model
     
     /**
      * @var string The primary key for the table
      */
-    protected static $primaryKey = 'id';
+    // protected static $primaryKey = 'id'; // Conventionally handled by base Model
     
     /**
      * @var array The model's fillable attributes
@@ -26,8 +31,8 @@ class SubscriptionItem extends Model {
         'stripe_product',
         'stripe_price',
         'quantity',
-        'created_at',
-        'updated_at'
+        // 'created_at', // Handled by timestamps
+        // 'updated_at'  // Handled by timestamps
     ];
     
     /**
@@ -37,77 +42,89 @@ class SubscriptionItem extends Model {
      */
     protected $casts = [
         'quantity' => 'integer',
-        'created_at' => 'datetime',
-        'updated_at' => 'datetime'
+        // 'created_at' and 'updated_at' are handled by Eloquent's $timestamps property (true by default)
     ];
+
+    /**
+     * Indicates if the model should be timestamped.
+     *
+     * @var bool
+     */
+    public $timestamps = true;
     
     /**
-     * Get the subscription that owns the subscription item
+     * Get the subscription that owns the subscription item.
      * 
-     * @return Subscription|null
+     * @return BelongsTo
      */
-    public function subscription() {
-        return Subscription::find($this->subscription_id);
+    public function subscription(): BelongsTo 
+    {
+        return $this->belongsTo(Subscription::class);
     }
     
     /**
-     * Get the plan associated with the subscription item
+     * Get the plan associated with the subscription item.
      * 
-     * @return Plan|null
+     * @return BelongsTo
      */
-    public function plan() {
-        return Plan::find($this->plan_id);
+    public function plan(): BelongsTo 
+    {
+        return $this->belongsTo(Plan::class);
     }
     
     /**
-     * Get the total price for this subscription item
+     * Get the total price for this subscription item.
      * 
      * @return float
      */
-    public function getTotal() {
-        $plan = $this->plan();
-        return $plan ? $plan->price * $this->quantity : 0;
+    public function getTotal(): float 
+    {
+        return $this->plan ? (float) $this->plan->price * $this->quantity : 0.0;
     }
     
     /**
-     * Get the formatted total price
+     * Get the formatted total price.
      * 
      * @return string
      */
-    public function getFormattedTotal() {
+    public function getFormattedTotal(): string 
+    {
         return '$' . number_format($this->getTotal(), 2);
     }
     
     /**
-     * Increment the quantity of the subscription item
+     * Increment the quantity of the subscription item.
      * 
      * @param int $count
      * @return bool
      */
-    public function incrementQuantity($count = 1) {
+    public function incrementQuantity(int $count = 1): bool 
+    {
         $this->quantity += $count;
         return $this->save();
     }
     
     /**
-     * Decrement the quantity of the subscription item
+     * Decrement the quantity of the subscription item.
      * 
      * @param int $count
      * @return bool
      */
-    public function decrementQuantity($count = 1) {
+    public function decrementQuantity(int $count = 1): bool 
+    {
         $this->quantity = max(0, $this->quantity - $count);
         return $this->save();
     }
     
     /**
-     * Update the quantity of the subscription item
+     * Update the quantity of the subscription item.
      * 
      * @param int $quantity
      * @return bool
      */
-    public function updateQuantity($quantity) {
-        $this->quantity = max(0, (int) $quantity);
+    public function updateQuantity(int $quantity): bool 
+    {
+        $this->quantity = max(0, $quantity);
         return $this->save();
     }
 }

@@ -7,19 +7,12 @@
 
 namespace App\Models;
 
-use App\Libraries\Database;
+use App\Core\Database\Model;
 
 class Referral extends Model {
-    /**
-     * @var string The database table name
-     */
-    protected static $table = 'referrals';
-    
-    /**
-     * @var string The primary key for the table
-     */
-    protected static $primaryKey = 'id';
-    
+    // The table name 'referrals' and primary key 'id' will be inferred by the base Model.
+    // Timestamps (created_at, updated_at) are handled by the base Model by default.
+
     /**
      * @var array The model's fillable attributes
      */
@@ -55,7 +48,8 @@ class Referral extends Model {
      * 
      * @return User|null
      */
-    public function user() {
+    public function user(): ?User
+    {
         return User::find($this->user_id);
     }
     
@@ -64,8 +58,9 @@ class Referral extends Model {
      * 
      * @return array
      */
-    public function conversions() {
-        return ReferralConversion::where('referral_id', $this->id)->get();
+    public function conversions(): \App\Core\Database\Collection
+    {
+        return ReferralConversion::query()->where('referral_id', $this->id)->get();
     }
     
     /**
@@ -73,7 +68,8 @@ class Referral extends Model {
      * 
      * @return string
      */
-    public static function generateUniqueCode() {
+    public static function generateUniqueCode(): string
+    {
         $characters = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
         $code = '';
         
@@ -83,7 +79,7 @@ class Referral extends Model {
         }
         
         // Check if code already exists
-        $existingReferral = self::where('referral_code', $code)->first();
+        $existingReferral = static::query()->where('referral_code', $code)->first();
         
         // If code exists, generate a new one recursively
         if ($existingReferral) {
@@ -101,10 +97,11 @@ class Referral extends Model {
      * @param int|null $archetypeId
      * @return Referral|null
      */
-    public static function createForUser($userId, $type = self::TYPE_RARITY_SCORE, $archetypeId = null) {
+    public static function createForUser(int $userId, string $type = self::TYPE_RARITY_SCORE, ?int $archetypeId = null): ?static
+    {
         // Check if user already has a referral of this type (and archetype if provided)
-        $query = self::where('user_id', $userId)
-                     ->where('type', $type);
+        $query = static::query()->where('user_id', $userId)
+                                ->where('type', $type);
         if ($archetypeId !== null) {
             $query = $query->where('archetype_id', $archetypeId);
         }
@@ -113,14 +110,13 @@ class Referral extends Model {
             return $existingReferral;
         }
         // Create new referral
-        return self::create([
+        return static::create([
             'user_id' => $userId,
             'referral_code' => self::generateUniqueCode(),
             'type' => $type,
             'archetype_id' => $archetypeId,
             'successful_referrals' => 0,
-            'created_at' => date('Y-m-d H:i:s'),
-            'updated_at' => date('Y-m-d H:i:s')
+            // created_at and updated_at are handled automatically by the base Model
         ]);
     }
     
@@ -130,8 +126,9 @@ class Referral extends Model {
      * @param string $code
      * @return Referral|null
      */
-    public static function findByCode($code) {
-        return self::where('referral_code', $code)->first();
+    public static function findByCode(string $code): ?static
+    {
+        return static::query()->where('referral_code', $code)->first();
     }
     
     /**
@@ -140,9 +137,11 @@ class Referral extends Model {
      * @param int $referredUserId
      * @return bool
      */
-    public function trackReferral($referredUserId) {
+    public function trackReferral(int $referredUserId): bool
+    {
         // Check if this user has already been referred by this referral
-        $existingConversion = ReferralConversion::where('referral_id', $this->id)
+        $existingConversion = ReferralConversion::query()
+                                              ->where('referral_id', $this->id)
                                               ->where('referred_user_id', $referredUserId)
                                               ->first();
         
@@ -154,13 +153,16 @@ class Referral extends Model {
         $conversion = ReferralConversion::create([
             'referral_id' => $this->id,
             'referred_user_id' => $referredUserId,
-            'converted_at' => date('Y-m-d H:i:s')
+            // converted_at should be handled by ReferralConversion model's timestamps if applicable
+            // or set explicitly if it's not a standard timestamp field.
+            // Assuming ReferralConversion also uses automatic timestamps or has its own logic.
+            'converted_at' => date('Y-m-d H:i:s') // Use native PHP date function
         ]);
         
         if ($conversion) {
             // Increment successful referrals count
             $this->successful_referrals += 1;
-            $this->updated_at = date('Y-m-d H:i:s');
+            // updated_at is handled automatically by the base Model on save
             return $this->save();
         }
         
@@ -173,7 +175,8 @@ class Referral extends Model {
      * @param int $requiredReferrals
      * @return bool
      */
-    public function hasEnoughReferrals($requiredReferrals = 3) {
+    public function hasEnoughReferrals(int $requiredReferrals = 3): bool
+    {
         return $this->successful_referrals >= $requiredReferrals;
     }
     
@@ -182,7 +185,8 @@ class Referral extends Model {
      * 
      * @return string
      */
-    public function getReferralUrl() {
+    public function getReferralUrl(): string
+    {
         $baseUrl = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https://' : 'http://';
         $baseUrl .= $_SERVER['HTTP_HOST'];
         

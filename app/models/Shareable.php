@@ -2,200 +2,177 @@
 
 namespace App\Models;
 
-use App\Libraries\Database;
-use PDO;
+use App\Core\Database\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-class Shareable
+class Shareable extends Model
 {
-    private $db;
-    
-    public function __construct()
-    {
-        $this->db = Database::getInstance()->getConnection();
-    }
-    
+    protected $fillable = [
+        'user_id',
+        'type',
+        'title',
+        'description',
+        'data',
+        'animation_config',
+        'share_url',
+        'is_public',
+        'expires_at',
+        'view_count',
+        'download_count',
+    ];
+
+    protected $casts = [
+        'data' => 'array',
+        'animation_config' => 'array',
+        'is_public' => 'boolean',
+        'expires_at' => 'datetime',
+        'view_count' => 'integer',
+        'download_count' => 'integer',
+    ];
+
     /**
-     * Create a new shareable
+     * Get the user that owns the shareable.
      */
-    public function create($data)
+    public function user(): BelongsTo
     {
-        $sql = "INSERT INTO shareables (user_id, type, title, description, data, animation_config, share_url, is_public, expires_at) 
-                VALUES (:user_id, :type, :title, :description, :data, :animation_config, :share_url, :is_public, :expires_at)";
-        
-        $stmt = $this->db->prepare($sql);
-        $result = $stmt->execute([
-            ':user_id' => $data['user_id'] ?? null,
-            ':type' => $data['type'],
-            ':title' => $data['title'],
-            ':description' => $data['description'] ?? null,
-            ':data' => json_encode($data['data']),
-            ':animation_config' => json_encode($data['animation_config']),
-            ':share_url' => $data['share_url'],
-            ':is_public' => $data['is_public'] ?? true,
-            ':expires_at' => $data['expires_at'] ?? null
-        ]);
-        
-        if ($result) {
-            return $this->db->lastInsertId();
+        return $this->belongsTo(User::class);
+    }
+
+    /**
+     * Create a new shareable.
+     *
+     * @param array $data
+     * @return static|null
+     */
+    public static function createShareable(array $data): ?static
+    {
+        return static::create($data);
+    }
+
+    /**
+     * Get shareable by ID.
+     *
+     * @param int $id
+     * @return static|null
+     */
+    public static function findShareableById(int $id): ?static
+    {
+        return static::find($id);
+    }
+
+    /**
+     * Get shareable by share URL.
+     *
+     * @param string $shareUrl
+     * @return static|null
+     */
+    public static function findByShareUrl(string $shareUrl): ?static
+    {
+        return static::where('share_url', $shareUrl)->first();
+    }
+
+    /**
+     * Get shareables by user ID.
+     *
+     * @param int $userId
+     * @param int $limit
+     * @param int $offset
+     * @return array
+     */
+    public static function findByUserId(int $userId, int $limit = 20, int $offset = 0): array
+    {
+        return static::query()
+            ->where('user_id', $userId)
+            ->orderBy('created_at', 'desc')
+            ->limit($limit)
+            ->offset($offset)
+            ->get();
+    }
+
+    /**
+     * Get public shareables by type.
+     *
+     * @param string $type
+     * @param int $limit
+     * @param int $offset
+     * @return array
+     */
+    public static function findByType(string $type, int $limit = 20, int $offset = 0): array
+    {
+        return static::query()
+            ->where('type', $type)
+            ->where('is_public', true)
+            ->where(function ($query) {
+                $query->whereNull('expires_at')
+                      ->orWhere('expires_at', '>', date('Y-m-d H:i:s'));
+            })
+            ->orderBy('created_at', 'desc')
+            ->limit($limit)
+            ->offset($offset)
+            ->get();
+    }
+
+    /**
+     * Increment view count.
+     *
+     * @param int $id
+     * @return bool
+     */
+    public static function incrementViewCount(int $id): bool
+    {
+        return static::where('id', $id)->increment('view_count');
+    }
+
+    /**
+     * Increment download count.
+     *
+     * @param int $id
+     * @return bool
+     */
+    public static function incrementDownloadCount(int $id): bool
+    {
+        return static::where('id', $id)->increment('download_count');
+    }
+
+    /**
+     * Update shareable.
+     *
+     * @param int $id
+     * @param array $data
+     * @return bool
+     */
+    public static function updateShareable(int $id, array $data): bool
+    {
+        $shareable = static::find($id);
+        if ($shareable) {
+            return $shareable->update($data);
         }
-        
         return false;
     }
-    
+
     /**
-     * Get shareable by ID
+     * Delete shareable.
+     *
+     * @param int $id
+     * @return bool|null
      */
-    public function findById($id)
+    public static function deleteShareable(int $id): ?bool
     {
-        $sql = "SELECT * FROM shareables WHERE id = :id";
-        $stmt = $this->db->prepare($sql);
-        $stmt->execute([':id' => $id]);
-        
-        $shareable = $stmt->fetch(PDO::FETCH_ASSOC);
-        
-        if ($shareable) {
-            $shareable['data'] = json_decode($shareable['data'], true);
-            $shareable['animation_config'] = json_decode($shareable['animation_config'], true);
-        }
-        
-        return $shareable;
+        return static::destroy($id);
     }
-    
+
     /**
-     * Get shareable by share URL
+     * Clean up expired shareables.
+     *
+     * @return int Number of rows affected.
      */
-    public function findByShareUrl($shareUrl)
+    public static function cleanupExpired(): int
     {
-        $sql = "SELECT * FROM shareables WHERE share_url = :share_url";
-        $stmt = $this->db->prepare($sql);
-        $stmt->execute([':share_url' => $shareUrl]);
-        
-        $shareable = $stmt->fetch(PDO::FETCH_ASSOC);
-        
-        if ($shareable) {
-            $shareable['data'] = json_decode($shareable['data'], true);
-            $shareable['animation_config'] = json_decode($shareable['animation_config'], true);
-        }
-        
-        return $shareable;
+        return static::whereNotNull('expires_at')
+            ->where('expires_at', '<', date('Y-m-d H:i:s'))
+            ->delete();
     }
-    
-    /**
-     * Get shareables by user ID
-     */
-    public function findByUserId($userId, $limit = 20, $offset = 0)
-    {
-        $sql = "SELECT * FROM shareables WHERE user_id = :user_id 
-                ORDER BY created_at DESC LIMIT :limit OFFSET :offset";
-        
-        $stmt = $this->db->prepare($sql);
-        $stmt->bindValue(':user_id', $userId, PDO::PARAM_INT);
-        $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
-        $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
-        $stmt->execute();
-        
-        $shareables = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        
-        foreach ($shareables as &$shareable) {
-            $shareable['data'] = json_decode($shareable['data'], true);
-            $shareable['animation_config'] = json_decode($shareable['animation_config'], true);
-        }
-        
-        return $shareables;
-    }
-    
-    /**
-     * Get public shareables by type
-     */
-    public function findByType($type, $limit = 20, $offset = 0)
-    {
-        $sql = "SELECT * FROM shareables WHERE type = :type AND is_public = 1 
-                AND (expires_at IS NULL OR expires_at > NOW())
-                ORDER BY created_at DESC LIMIT :limit OFFSET :offset";
-        
-        $stmt = $this->db->prepare($sql);
-        $stmt->bindValue(':type', $type, PDO::PARAM_STR);
-        $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
-        $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
-        $stmt->execute();
-        
-        $shareables = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        
-        foreach ($shareables as &$shareable) {
-            $shareable['data'] = json_decode($shareable['data'], true);
-            $shareable['animation_config'] = json_decode($shareable['animation_config'], true);
-        }
-        
-        return $shareables;
-    }
-    
-    /**
-     * Increment view count
-     */
-    public function incrementViewCount($id)
-    {
-        $sql = "UPDATE shareables SET view_count = view_count + 1 WHERE id = :id";
-        $stmt = $this->db->prepare($sql);
-        return $stmt->execute([':id' => $id]);
-    }
-    
-    /**
-     * Increment download count
-     */
-    public function incrementDownloadCount($id)
-    {
-        $sql = "UPDATE shareables SET download_count = download_count + 1 WHERE id = :id";
-        $stmt = $this->db->prepare($sql);
-        return $stmt->execute([':id' => $id]);
-    }
-    
-    /**
-     * Update shareable
-     */
-    public function update($id, $data)
-    {
-        $fields = [];
-        $params = [':id' => $id];
-        
-        foreach ($data as $key => $value) {
-            if (in_array($key, ['title', 'description', 'is_public', 'expires_at'])) {
-                $fields[] = "$key = :$key";
-                $params[":$key"] = $value;
-            } elseif (in_array($key, ['data', 'animation_config'])) {
-                $fields[] = "$key = :$key";
-                $params[":$key"] = json_encode($value);
-            }
-        }
-        
-        if (empty($fields)) {
-            return false;
-        }
-        
-        $sql = "UPDATE shareables SET " . implode(', ', $fields) . " WHERE id = :id";
-        $stmt = $this->db->prepare($sql);
-        return $stmt->execute($params);
-    }
-    
-    /**
-     * Delete shareable
-     */
-    public function delete($id)
-    {
-        $sql = "DELETE FROM shareables WHERE id = :id";
-        $stmt = $this->db->prepare($sql);
-        return $stmt->execute([':id' => $id]);
-    }
-    
-    /**
-     * Clean up expired shareables
-     */
-    public function cleanupExpired()
-    {
-        $sql = "DELETE FROM shareables WHERE expires_at IS NOT NULL AND expires_at < NOW()";
-        $stmt = $this->db->prepare($sql);
-        return $stmt->execute();
-    }
-    
+
     /**
      * Get popular shareables
      */

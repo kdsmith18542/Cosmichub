@@ -7,96 +7,29 @@
 
 namespace App\Models;
 
-use PDO;
-use PDOException;
-use App\Libraries\Model;
-use App\Libraries\Database;
+use App\Core\Database\Model;
 use App\Models\UserToken;
+use App\Services\EmailService;
 
-/**
- * @property int $id
- * @property string $name
- * @property string $email
- * @property string $password
- * @property int $credits
- * @property string $subscription_status
- * @property string $subscription_ends_at
- * @property string $email_verified_at
- * @property string $email_verification_token
- * @property string $email_verification_sent_at
- * @property string $remember_token
- * @property string $created_at
- * @property string $updated_at
- * @property string $birthdate
- * @property string $zodiac_sign
- */
-
-class User extends Model {
-    /**
-     * The table associated with the model.
-     *
-     * @var string
-     */
-    protected static $table = 'users';
-    
-    /**
-     * The primary key for the model.
-     *
-     * @var string
-     */
-    protected static $primaryKey = 'id';
-    
-    /**
-     * The attributes that are mass assignable.
-     *
-     * @var array
-     */
+class User extends Model
+{
+    protected $table = 'users';
+    protected $primaryKey = 'id';
     protected $fillable = [
-        'name',
-        'email',
-        'password',
-        'credits',
-        'subscription_status',
-        'subscription_ends_at',
-        'email_verified_at',
-        'email_verification_sent_at',
-        'email_verification_attempts',
-        'remember_token',
-        'birthdate',
-        'zodiac_sign',
-        'stripe_customer_id' // Added for Stripe integration
+        'name', 'email', 'username', 'password', 'role', 'status', 
+        'credits', 'subscription_status', 'subscription_expires_at',
+        'email_verified_at', 'last_login_at', 'login_count', 'avatar'
     ];
+    protected $hidden = ['password', 'remember_token'];
+    protected $timestamps = true;
     
-    /**
-     * The attributes that should be hidden for arrays.
-     *
-     * @var array
-     */
-    protected $hidden = [
-        'password',
-        'remember_token',
-        'remember_token'
-    ];
-    
-    /**
-     * The attributes that should be cast.
-     *
-     * @var array
-     */
     protected $casts = [
-        'email_verified_at' => 'datetime',
-        'email_verification_sent_at' => 'datetime',
-        'subscription_ends_at' => 'datetime',
         'credits' => 'integer',
-        'email_verification_attempts' => 'integer'
+        'login_count' => 'integer',
+        'email_verified_at' => 'datetime',
+        'last_login_at' => 'datetime',
+        'subscription_expires_at' => 'datetime'
     ];
-    
-    /**
-     * Indicates if the model should be timestamped.
-     *
-     * @var bool
-     */
-    public $timestamps = true;
 
     /**
      * Create a new User model instance.
@@ -109,23 +42,23 @@ class User extends Model {
     }
 
     /**
-     * Find a user by ID
-     * 
-     * @param int $id
-     * @return User|null
-     */
-    public static function findById($id) {
-        return static::find($id);
-    }
-    
-    /**
-     * Find a user by email
-     * 
+     * Find a user by email.
+     *
      * @param string $email
      * @return User|null
      */
     public static function findByEmail($email) {
-        return static::where('email', $email)->first();
+        return static::query()->where('email', $email)->first();
+    }
+    
+    /**
+     * Find a user by username.
+     *
+     * @param string $username
+     * @return User|null
+     */
+    public static function findByUsername($username) {
+        return static::query()->where('username', $username)->first();
     }
     
     /**
@@ -210,14 +143,12 @@ class User extends Model {
     }
     
     /**
-     * Mark the user's email as verified
-     * 
+     * Check if the user's email is verified.
+     *
      * @return bool
      */
-    public function markEmailAsVerified()
-    {
-        $this->email_verified_at = date('Y-m-d H:i:s');
-        return $this->save();
+    public function isEmailVerified() {
+        return !is_null($this->email_verified_at);
     }
     
     /**
@@ -241,11 +172,21 @@ class User extends Model {
             $emailService = new \App\Services\EmailService();
             return $emailService->sendVerificationEmail($this);
         } catch (\Exception $e) {
-            error_log('Failed to send verification email: ' . $e->getMessage());
+            \App\Support\Log::error('Failed to send verification email: ' . $e->getMessage());
             return false;
         }
     }
     
+    
+    /**
+     * Mark the user's email as verified.
+     *
+     * @return bool
+     */
+    public function markEmailAsVerified() {
+        $this->email_verified_at = date('Y-m-d H:i:s');
+        return $this->save();
+    }
     
     /**
      * Check if the user has an active subscription
@@ -253,9 +194,9 @@ class User extends Model {
      * @return bool
      */
     public function hasActiveSubscription() {
-        return in_array($this->subscription_status, ['active', 'trialing']) && 
-               (empty($this->subscription_ends_at) || 
-                strtotime($this->subscription_ends_at) > time());
+        return $this->subscription_status === 'active' && 
+               ($this->subscription_expires_at === null || 
+                strtotime($this->subscription_expires_at) > time());
     }
     
     /**
@@ -265,7 +206,16 @@ class User extends Model {
      * @return bool
      */
     public function verifyPassword($password) {
-        return password_verify($password, $this->getAttribute('password'));
+        return password_verify($password, $this->password);
+    }
+    
+    /**
+     * Check if email has been verified (alias for isEmailVerified)
+     * 
+     * @return bool
+     */
+    public function hasVerifiedEmail() {
+        return $this->isEmailVerified();
     }
     
     /**
@@ -295,7 +245,8 @@ class User extends Model {
         }
 
         // Get the latest valid token
-        $userToken = UserToken::where('user_id', $this->getKey())
+        $userToken = UserToken::query()
+            ->where('user_id', $this->id)
             ->where('type', 'email_verification')
             ->where('used_at', null)
             ->where('invalidated_at', null)
@@ -358,7 +309,7 @@ class User extends Model {
             ];
 
         } catch (\Exception $e) {
-            error_log('Email verification error: ' . $e->getMessage());
+            \App\Support\Log::error('Email verification error: ' . $e->getMessage());
             return [
                 'success' => false,
                 'message' => 'An error occurred while verifying your email. Please try again.'
@@ -373,7 +324,7 @@ class User extends Model {
      * @return bool
      */
     public function isVerificationTokenExpired($expiryHours = 24) {
-        $sentAt = $this->getAttribute('email_verification_sent_at');
+        $sentAt = $this->email_verification_sent_at;
         if (empty($sentAt)) {
             return true;
         }
@@ -394,7 +345,7 @@ class User extends Model {
      * @return bool
      */
     public function deleteRememberTokens() {
-        $this->setAttribute('remember_token', null);
+        $this->remember_token = null;
         return $this->save();
     }
     

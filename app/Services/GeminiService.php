@@ -3,17 +3,21 @@
 namespace App\Services;
 
 use Gemini;
+use Psr\Log\LoggerInterface;
 
 class GeminiService
 {
     private $client;
     private $apiKey;
+    private LoggerInterface $logger;
 
-    public function __construct()
+    public function __construct(LoggerInterface $logger)
     {
+        $this->logger = $logger;
         $this->apiKey = $_ENV['GEMINI_API_KEY'] ?? null;
         
         if (!$this->apiKey) {
+            $this->logger->error('Gemini API key not found in environment variables');
             throw new \Exception('Gemini API key not found in environment variables');
         }
         
@@ -30,7 +34,7 @@ class GeminiService
             $result = $this->client->generativeModel('gemini-1.5-flash')->generateContent($prompt);
             return $result->text();
         } catch (\Exception $e) {
-            error_log('Gemini API Error (Soul\'s Archetype): ' . $e->getMessage());
+            $this->logger->error('Gemini API Error (Soul\'s Archetype): ' . $e->getMessage(), ['exception' => $e]);
             return null;
         }
     }
@@ -44,7 +48,7 @@ class GeminiService
             $result = $this->client->generativeModel('gemini-1.5-flash')->generateContent($prompt);
             return $result->text();
         } catch (\Exception $e) {
-            error_log('Gemini API Error (Planetary Influence): ' . $e->getMessage());
+            $this->logger->error('Gemini API Error (Planetary Influence): ' . $e->getMessage(), ['exception' => $e]);
             return null;
         }
     }
@@ -58,7 +62,7 @@ class GeminiService
             $result = $this->client->generativeModel('gemini-1.5-flash')->generateContent($prompt);
             return $result->text();
         } catch (\Exception $e) {
-            error_log('Gemini API Error (Life Path Number): ' . $e->getMessage());
+            $this->logger->error('Gemini API Error (Life Path Number): ' . $e->getMessage(), ['exception' => $e]);
             return null;
         }
     }
@@ -72,7 +76,7 @@ class GeminiService
             $result = $this->client->generativeModel('gemini-1.5-flash')->generateContent($prompt);
             return $result->text();
         } catch (\Exception $e) {
-            error_log('Gemini API Error (Cosmic Summary): ' . $e->getMessage());
+            $this->logger->error('Gemini API Error (Cosmic Summary): ' . $e->getMessage(), ['exception' => $e]);
             return null;
         }
     }
@@ -86,7 +90,7 @@ class GeminiService
             $result = $this->client->generativeModel('gemini-1.5-flash')->generateContent($prompt);
             return $result->text();
         } catch (\Exception $e) {
-            error_log('Gemini API Error (Archetype Insights): ' . $e->getMessage());
+            $this->logger->error('Gemini API Error (Archetype Insights): ' . $e->getMessage(), ['exception' => $e]);
             return null;
         }
     }

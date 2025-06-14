@@ -175,129 +175,27 @@ class VerifyCsrfToken
 
         return $response;
     }
+
 }
 
 // Helper function to get CSRF token (can be used in views)
 if (!function_exists('csrf_token')) {
     function csrf_token(string $formName = 'default'): string
     {
-        return App\Libraries\Security\CSRF::generateToken($formName);
+        return \App\Libraries\Security\CSRF::generateToken($formName);
     }
 }
 
 if (!function_exists('csrf_field')) {
     function csrf_field(string $formName = 'default'): string
     {
-        return App\Libraries\Security\CSRF::getTokenField($formName);
+        return \App\Libraries\Security\CSRF::getTokenField($formName);
     }
 }
 
 if (!function_exists('csrf_verify')) {
     function csrf_verify(string $formName = 'default', bool $throwException = true): bool
     {
-        return App\Libraries\Security\CSRF::verifyRequest($formName, $throwException);
-    }
-}
-    }
-
-    /**
-     * Determine if the HTTP request uses a 'read' verb
-     *
-     * @param \Psr\Http\Message\ServerRequestInterface $request
-     * @return bool
-     */
-    protected function isReading($request)
-    {
-        return in_array($request->getMethod(), ['HEAD', 'GET', 'OPTIONS']);
-    }
-
-    /**
-     * Determine if the request has a URI that should pass through CSRF verification
-     *
-     * @param \Psr\Http\Message\ServerRequestInterface $request
-     * @return bool
-     */
-    protected function inExceptArray($request)
-    {
-        $uri = $request->getUri()->getPath();
-        
-        foreach ($this->except as $except) {
-            // Convert wildcard to regex
-            $pattern = str_replace('*', '.*', $except);
-            if (preg_match('#^' . $pattern . '$#', $uri)) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /**
-     * Determine if the session and input CSRF tokens match
-     *
-     * @param \Psr\Http\Message\ServerRequestInterface $request
-     * @return bool
-     */
-    protected function tokensMatch($request)
-    {
-        $token = $this->getTokenFromRequest($request);
-        
-        if (empty($token)) {
-            return false;
-        }
-        
-        // Use the form name if provided, otherwise use default
-        $formName = $request->getParsedBody()['_form_name'] ?? 'default';
-        
-        return CSRF::validateToken($token, $formName);
-    }
-
-    /**
-     * Get the CSRF token from the request
-     *
-     * @param \Psr\Http\Message\ServerRequestInterface $request
-     * @return string|null
-     */
-    protected function getTokenFromRequest($request)
-    {
-        $token = $request->getParsedBody()['_token'] ?? 
-                $request->getHeaderLine('X-CSRF-TOKEN') ??
-                $request->getHeaderLine('X-XSRF-TOKEN');
-
-        if (empty($token) && !empty($_COOKIE['XSRF-TOKEN'])) {
-            $token = $this->decryptXSRFToken($_COOKIE['XSRF-TOKEN']);
-        }
-
-        return $token;
-    }
-
-    /**
-     * Decrypt the XSRF token from the cookie
-     * 
-     * @param string $token
-     * @return string|null
-     */
-    protected function decryptXSRFToken($token)
-    {
-        // Implement your decryption logic here
-        // This is a simplified example - in production, use proper encryption
-        return base64_decode($token);
-    }
-
-    /**
-     * Return a JSON error response
-     * 
-     * @param string $message
-     * @param int $statusCode
-     * @return \Psr\Http\Message\ResponseInterface
-     */
-    protected function jsonError($message, $statusCode = 419)
-    {
-        $response = new \Laminas\Diactoros\Response\JsonResponse([
-            'error' => $message,
-            'status' => $statusCode
-        ], $statusCode);
-        
-        return $response;
+        return \App\Libraries\Security\CSRF::verifyRequest($formName, $throwException);
     }
 }

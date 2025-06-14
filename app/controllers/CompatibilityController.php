@@ -7,11 +7,22 @@
  */
 
 // Load required files
-require_once __DIR__ . '/../libraries/Controller.php';
-require_once __DIR__ . '/../models/User.php';
-require_once __DIR__ . '/../helpers/auth.php';
+// Removed: Using autoloading and new Core\Controller\Controller architecture
+// Removed: Using autoloading for User model
+// Removed: Using autoloading for auth helper functions
 
-class CompatibilityController extends \App\Libraries\Controller {
+use App\Models\User;
+use App\Services\UserService;
+use Psr\Log\LoggerInterface;
+
+class CompatibilityController extends \App\Core\Controller\Controller {
+    protected $logger;
+
+    public function __construct(UserService $userService, LoggerInterface $logger)
+    {
+        parent::__construct($userService);
+        $this->logger = $logger;
+    }
     
     /**
      * Show the compatibility report form
@@ -36,7 +47,7 @@ class CompatibilityController extends \App\Libraries\Controller {
                 $geminiService = new \App\Services\GeminiService();
                 $premiumCompatibilityContent = $geminiService->generateArchetypeInsights("Generate detailed compatibility insights for cosmic connections. Focus on relationship dynamics, spiritual compatibility, and karmic connections. Provide comprehensive analysis for premium subscribers. Format as engaging, insightful content.");
             } catch (Exception $e) {
-                error_log('Error generating premium compatibility content: ' . $e->getMessage());
+                $this->logger->error('Error generating premium compatibility content: ' . $e->getMessage());
                 $premiumCompatibilityContent = null;
             }
         }
@@ -45,7 +56,7 @@ class CompatibilityController extends \App\Libraries\Controller {
         if ($user) {
             try {
                 // Get or create referral for compatibility type
-                $referral = \App\Models\Referral::getOrCreateForUser($user->id, \App\Models\Referral::TYPE_COMPATIBILITY);
+                $referral = $this->userService->getOrCreateReferralForUser($user->id, 'compatibility');
                 
                 if ($referral) {
                     $referralData = [
@@ -58,7 +69,7 @@ class CompatibilityController extends \App\Libraries\Controller {
                     ];
                 }
             } catch (Exception $e) {
-                error_log('Error fetching referral data: ' . $e->getMessage());
+                $this->logger->error('Error fetching referral data: ' . $e->getMessage());
             }
         }
         
@@ -138,7 +149,7 @@ class CompatibilityController extends \App\Libraries\Controller {
             ]);
             
         } catch (Exception $e) {
-            error_log('Error generating compatibility report: ' . $e->getMessage());
+            $this->logger->error('Error generating compatibility report: ' . $e->getMessage());
             $this->jsonResponse(['error' => 'Failed to generate compatibility report. Please try again.'], 500);
         }
     }
@@ -396,7 +407,7 @@ class CompatibilityController extends \App\Libraries\Controller {
                 ]);
             }
         } catch (Exception $e) {
-            error_log('Error processing referral conversion: ' . $e->getMessage());
+            $this->logger->error('Error processing referral conversion: ' . $e->getMessage());
         }
     }
     

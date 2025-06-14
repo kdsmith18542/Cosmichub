@@ -1,5 +1,14 @@
 <?php
 
+// Define resource_path function if not already defined
+if (!function_exists('resource_path')) {
+    function resource_path($path = '')
+    {
+        $basePath = dirname(__DIR__);
+        return $basePath . '/resources' . ($path ? '/' . ltrim($path, '/') : '');
+    }
+}
+
 return [
     /*
     |--------------------------------------------------------------------------

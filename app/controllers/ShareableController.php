@@ -2,21 +2,38 @@
 
 namespace App\Controllers;
 
-use App\Controllers\BaseController;
-use App\Models\User;
-use App\Helpers\AstrologyHelper;
+use App\Core\Controller\Controller;
+use App\Core\Http\Request;
+use App\Core\Http\Response;
+use App\Services\UserService;
+use App\Services\ShareableService;
+use App\Services\AstrologyService;
+use Psr\Log\LoggerInterface;
 
-class ShareableController extends BaseController
+class ShareableController extends Controller
 {
+    private UserService $userService;
+    private ShareableService $shareableService;
+    private AstrologyService $astrologyService;
+    private LoggerInterface $logger;
+    
+    public function __construct()
+    {
+        parent::__construct();
+        $this->userService = $this->resolve(UserService::class);
+        $this->shareableService = $this->resolve(ShareableService::class);
+        $this->astrologyService = $this->resolve(AstrologyService::class);
+        $this->logger = $this->resolve(LoggerInterface::class);
+    }
     /**
      * Generate animated shareable for cosmic snapshot
      */
-    public function generateCosmicShareable($slug)
+    public function generateCosmicShareable(Request $request, $slug): Response
     {
         // Parse the birthday from slug
         $parts = explode('-', $slug);
         if (count($parts) !== 3) {
-            return $this->jsonResponse(['error' => 'Invalid date format'], 400);
+            return $this->json(['error' => 'Invalid date format'], 400);
         }
 
         $month = (int)$parts[0];
@@ -25,14 +42,14 @@ class ShareableController extends BaseController
 
         // Validate date
         if (!checkdate($month, $day, $year)) {
-            return $this->jsonResponse(['error' => 'Invalid date'], 400);
+            return $this->json(['error' => 'Invalid date'], 400);
         }
 
         // Generate cosmic data
         $cosmicData = $this->generateCosmicData($month, $day, $year);
         
         // Return shareable data for frontend animation
-        return $this->jsonResponse([
+        return $this->json([
             'success' => true,
             'data' => $cosmicData,
             'shareableUrl' => url("/cosmic-snapshot/{$slug}"),
@@ -43,18 +60,18 @@ class ShareableController extends BaseController
     /**
      * Generate compatibility shareable
      */
-    public function generateCompatibilityShareable()
+    public function generateCompatibilityShareable(Request $request): Response
     {
         $this->requireLogin();
         
-        $person1 = sanitize_input($_POST['person1'] ?? '');
-        $person2 = sanitize_input($_POST['person2'] ?? '');
-        $score = (int)($_POST['score'] ?? 0);
-        $date1 = sanitize_input($_POST['date1'] ?? '');
-        $date2 = sanitize_input($_POST['date2'] ?? '');
+        $person1 = sanitize_input($request->input('person1', ''));
+        $person2 = sanitize_input($request->input('person2', ''));
+        $score = (int)$request->input('score', 0);
+        $date1 = sanitize_input($request->input('date1', ''));
+        $date2 = sanitize_input($request->input('date2', ''));
 
         if (empty($person1) || empty($person2) || $score < 0 || $score > 100) {
-            return $this->jsonResponse(['error' => 'Invalid compatibility data'], 400);
+            return $this->json(['error' => 'Invalid compatibility data'], 400);
         }
 
         // Generate compatibility visual data
@@ -68,7 +85,7 @@ class ShareableController extends BaseController
             'cosmic_elements' => $this->getCosmicElements($date1, $date2)
         ];
 
-        return $this->jsonResponse([
+        return $this->json([
             'success' => true,
             'data' => $compatibilityData,
             'animationConfig' => $this->getCompatibilityAnimationConfig($compatibilityData)
@@ -78,17 +95,17 @@ class ShareableController extends BaseController
     /**
      * Generate rarity score shareable
      */
-    public function generateRarityShareable()
+    public function generateRarityShareable(Request $request): Response
     {
         $this->requireLogin();
         
-        $month = (int)($_POST['month'] ?? 0);
-        $day = (int)($_POST['day'] ?? 0);
-        $year = (int)($_POST['year'] ?? 0);
-        $score = (int)($_POST['score'] ?? 0);
+        $month = (int)$request->input('month', 0);
+        $day = (int)$request->input('day', 0);
+        $year = (int)$request->input('year', 0);
+        $score = (int)$request->input('score', 0);
 
         if (!checkdate($month, $day, $year) || $score < 0 || $score > 100) {
-            return $this->jsonResponse(['error' => 'Invalid rarity data'], 400);
+            return $this->json(['error' => 'Invalid rarity data'], 400);
         }
 
         $rarityData = [
@@ -96,10 +113,10 @@ class ShareableController extends BaseController
             'rarity_score' => $score,
             'rarity_level' => $this->getRarityLevel($score),
             'cosmic_significance' => $this->getCosmicSignificance($month, $day),
-            'zodiac_sign' => AstrologyHelper::getZodiacSign($month, $day)
+            'zodiac_sign' => $this->astrologyService->getZodiacSign($month, $day)
         ];
 
-        return $this->jsonResponse([
+        return $this->json([
             'success' => true,
             'data' => $rarityData,
             'animationConfig' => $this->getRarityAnimationConfig($rarityData)
@@ -109,44 +126,43 @@ class ShareableController extends BaseController
     /**
      * Generate cosmic shareable (route method)
      */
-    public function generateCosmic()
+    public function generateCosmic(Request $request): Response
     {
-        $slug = $_POST['slug'] ?? '';
+        $slug = $request->input('slug', '');
         if (empty($slug)) {
-            return $this->jsonResponse(['error' => 'Missing date slug'], 400);
+            return $this->json(['error' => 'Missing date slug'], 400);
         }
-        return $this->generateCosmicShareable($slug);
+        return $this->generateCosmicShareable($request, $slug);
     }
 
     /**
      * Generate compatibility shareable (route method)
      */
-    public function generateCompatibility()
+    public function generateCompatibility(Request $request): Response
     {
-        return $this->generateCompatibilityShareable();
+        return $this->generateCompatibilityShareable($request);
     }
 
     /**
      * Generate rarity shareable (route method)
      */
-    public function generateRarity()
+    public function generateRarity(Request $request): Response
     {
-        return $this->generateRarityShareable();
+        return $this->generateRarityShareable($request);
     }
 
     /**
      * View a generated shareable
      */
-    public function view($id)
+    public function view(Request $request, $id): Response
     {
         try {
             // Find the shareable by ID
-            $shareable = Shareable::find($id);
+            $shareable = $this->shareableService->findById($id);
             
             if (!$shareable) {
                 // Redirect to home if shareable not found
-                header('Location: /');
-                exit;
+                return $this->redirect('/');
             }
             
             // Decode the shareable data
@@ -162,56 +178,52 @@ class ShareableController extends BaseController
             ];
             
             // Load the shareable view template
-            require_once __DIR__ . '/../../views/shareable/view.php';
+            return $this->view('shareable/view', $viewData);
             
         } catch (Exception $e) {
-            error_log('Error viewing shareable: ' . $e->getMessage());
-            header('Location: /');
-            exit;
+            $this->logger->error('Error viewing shareable: ' . $e->getMessage());
+            return $this->redirect('/');
         }
     }
 
     /**
      * Download a generated shareable
      */
-    public function download($id)
+    public function download(Request $request, $id): Response
     {
         try {
             // Find the shareable by ID
-            $shareable = Shareable::find($id);
+            $shareable = $this->shareableService->findById($id);
             
             if (!$shareable) {
-                return $this->jsonResponse(['error' => 'Shareable not found'], 404);
+                return $this->json(['error' => 'Shareable not found'], 404);
             }
             
             // Check if user owns this shareable or if it's public
             if ($shareable->user_id && (!auth_check() || auth_user()->id !== $shareable->user_id)) {
-                return $this->jsonResponse(['error' => 'Unauthorized access'], 403);
+                return $this->json(['error' => 'Unauthorized access'], 403);
             }
             
             // Generate the shareable content based on type
             $content = $this->generateShareableContent($shareable);
             
             if (!$content) {
-                return $this->jsonResponse(['error' => 'Failed to generate shareable content'], 500);
+                return $this->json(['error' => 'Failed to generate shareable content'], 500);
             }
             
             // Set appropriate headers for download
             $filename = $this->generateFilename($shareable);
             $mimeType = $this->getMimeType($shareable->format);
             
-            header('Content-Type: ' . $mimeType);
-            header('Content-Disposition: attachment; filename="' . $filename . '"');
-            header('Content-Length: ' . strlen($content));
-            header('Cache-Control: no-cache, must-revalidate');
-            
-            // Output the content
-            echo $content;
-            exit;
+            return $this->response($content)
+                ->withHeader('Content-Type', $mimeType)
+                ->withHeader('Content-Disposition', 'attachment; filename="' . $filename . '"')
+                ->withHeader('Content-Length', (string)strlen($content))
+                ->withHeader('Cache-Control', 'no-cache, must-revalidate');
             
         } catch (Exception $e) {
-            error_log('Shareable download error: ' . $e->getMessage());
-            return $this->jsonResponse(['error' => 'Download failed'], 500);
+            $this->logger->error('Shareable download error: ' . $e->getMessage());
+            return $this->json(['error' => 'Download failed'], 500);
         }
     }
 
@@ -220,10 +232,10 @@ class ShareableController extends BaseController
      */
     private function generateCosmicData($month, $day, $year)
     {
-        $westernZodiac = AstrologyHelper::getZodiacSign($month, $day);
-        $chineseZodiac = AstrologyHelper::getChineseZodiac($year);
-        $lifePathNumber = AstrologyHelper::calculateLifePathNumber($month, $day, $year);
-        $rarityScore = AstrologyHelper::calculateRarityScore($month, $day);
+        $westernZodiac = $this->astrologyService->getZodiacSign($month, $day);
+            $chineseZodiac = $this->astrologyService->getChineseZodiac($year);
+            $lifePathNumber = $this->astrologyService->calculateLifePathNumber($month, $day, $year);
+            $rarityScore = $this->astrologyService->calculateRarityScore($month, $day);
 
         return [
             'birth_date' => sprintf('%02d/%02d/%04d', $month, $day, $year),
@@ -429,15 +441,15 @@ class ShareableController extends BaseController
         $parts2 = explode('-', $date2);
         
         if (count($parts1) === 3 && count($parts2) === 3) {
-            $zodiac1 = AstrologyHelper::getZodiacSign((int)$parts1[1], (int)$parts1[2]);
-            $zodiac2 = AstrologyHelper::getZodiacSign((int)$parts2[1], (int)$parts2[2]);
+            $zodiac1 = $this->astrologyService->getZodiacSign((int)$parts1[1], (int)$parts1[2]);
+            $zodiac2 = $this->astrologyService->getZodiacSign((int)$parts2[1], (int)$parts2[2]);
             
             return [
                 'zodiac1' => $zodiac1,
                 'zodiac2' => $zodiac2,
                 'elements' => [
-                    AstrologyHelper::getZodiacElement($zodiac1),
-                    AstrologyHelper::getZodiacElement($zodiac2)
+                    $this->astrologyService->getZodiacElement($zodiac1),
+                $this->astrologyService->getZodiacElement($zodiac2)
                 ]
             ];
         }
