@@ -216,6 +216,17 @@ class Container implements ContainerInterface
     {
         return isset($this->bindings[$id]) || isset($this->instances[$id]);
     }
+
+    /**
+     * Returns true if the container can find a entry for the given identifier.
+     *
+     * @param string $id Identifier of the entry to look for.
+     * @return bool
+     */
+    public function has(string $id): bool
+    {
+        return isset($this->bindings[$id]) || isset($this->instances[$id]);
+    }
     
     /**
      * Get an entry from the container (PSR-11)

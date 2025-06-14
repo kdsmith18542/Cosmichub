@@ -141,7 +141,11 @@ class Application
 
         $this->registeredServiceProviders[get_class($provider)] = true;
 
+        var_dump("Provider object before method_exists check:", $provider);
+        var_dump('Provider class name: ' . $providerClass);
+        var_dump('Checking method_exists for registerServices on: ' . get_class($provider) . ' Result: ' . (method_exists($provider, 'registerServices') ? 'true' : 'false'));
         if (method_exists($provider, 'registerServices')) {
+            var_dump("Calling registerServices on: " . get_class($provider));
             $provider->registerServices();
             
         } else {
@@ -164,7 +168,7 @@ class Application
         }
 
         foreach ($this->serviceProviders as $provider) {
-
+            var_dump('Attempting to register service provider: ' . get_class($provider));
             $this->bootProvider($provider);
         }
 
@@ -206,7 +210,9 @@ class Application
         $this->register($loggingProvider);
 
         foreach ($this->coreServiceProviders as $provider) {
+            var_dump("Attempting to register core service provider: " . $provider);
             $this->register($provider);
+            var_dump("Finished registering core service provider: " . $provider);
         }
     }
     

@@ -172,7 +172,7 @@ class User extends Model
             $emailService = new \App\Services\EmailService();
             return $emailService->sendVerificationEmail($this);
         } catch (\Exception $e) {
-            \App\Support\Log::error('Failed to send verification email: ' . $e->getMessage());
+            error_log('Failed to send verification email: ' . $e->getMessage());
             return false;
         }
     }
@@ -309,7 +309,7 @@ class User extends Model
             ];
 
         } catch (\Exception $e) {
-            \App\Support\Log::error('Email verification error: ' . $e->getMessage());
+            error_log('Email verification error: ' . $e->getMessage());
             return [
                 'success' => false,
                 'message' => 'An error occurred while verifying your email. Please try again.'
