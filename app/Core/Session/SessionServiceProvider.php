@@ -61,10 +61,8 @@ class SessionServiceProvider extends ServiceProvider
      */
     protected function registerServices()
     {
-        var_dump('Inside SessionServiceProvider::registerServices()');
         // Register the Session class as a singleton
         $this->singleton('session', function ($app) {
-            var_dump('Registering session singleton');
             $session = new Session();
             
             // Configure session with enhanced settings
@@ -169,7 +167,7 @@ class SessionServiceProvider extends ServiceProvider
                 ini_set('session.gc_probability', '1');
                 ini_set('session.gc_divisor', '100');
             } else {
-                var_dump('Session already started or headers sent. Skipping configuration.');
+
             }
     }
     
@@ -180,15 +178,11 @@ class SessionServiceProvider extends ServiceProvider
      */
     protected function startSession()
     {
-        var_dump('Inside startSession()');
         // Start the session if it hasn't been started yet
         if (session_status() === PHP_SESSION_NONE) {
-            var_dump('Session not started, calling session_start()');
             session_start();
-            var_dump('session_start() called');
-        } else {
-            var_dump('Session already started. Status: ' . session_status());
-        }
+        } 
+    }
     }
     
     /**
